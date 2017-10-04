@@ -36,11 +36,12 @@ const (
 	Both = 3
 
 	// These are constants for terminal colors
-	colorFatal = "\x1B[34" // This is blue
-	colorErr   = "\x1B[31" // This is red
-	colorWarn  = "\x1B[33" // This is yellow
-	colorDebug = "\x1B[32" // This is green
 	// Info is left in the native terminal color
+	colorDebug = "\x1B[32m"      // This is green
+	colorErr   = "\x1B[31m"      // This is red
+	colorFatal = "\x1B[0;37;41m" // This is blue
+	colorReset = "\x1B[0m"       // resets an applied terminal color
+	colorWarn  = "\x1B[33m"      // This is yellow
 )
 
 // Logger is representative of the logger for use in other go programs
@@ -57,20 +58,28 @@ const (
 //	Fatal(logText string): Log fatal output to log destination
 //	Is_Uninitialized: Returns true if this structure has not been allocated
 type Logger struct {
-	loggingMode      int    // The mode of the logger (Should be FILE, SCREEN, or BOTH)
+	colorize         bool   // If true, print log output in color
 	loggingDirectory string // The directory to store logs in
 	loggingFile      string // The file to store logs in
+	loggingMode      int    // The mode of the logger (Should be FILE, SCREEN, or BOTH)
 }
 
 // Debug Outputs debug log information to the logging destination
 func (logger *Logger) Debug(logText string) {
+	var colorString = ""
+	var resetString = ""
+	if logger.colorize {
+		colorString = colorDebug
+		resetString = colorReset
+	}
+
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), debug, logText)
+		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), debug, logText, resetString)
 	}
 
 	if logger.loggingMode == Both || logger.loggingMode == File {
 		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-		var writeBytes = []byte("[" + time.Now().String() + "] " + debug + ":" + logText)
+		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + debug + ":" + logText + resetString)
 		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
@@ -90,39 +99,60 @@ func (logger *Logger) Info(logText string) {
 
 // Warning Outputs warning information to the logging destination
 func (logger *Logger) Warning(logText string) {
+	var colorString = ""
+	var resetString = ""
+	if logger.colorize {
+		colorString = colorWarn
+		resetString = colorReset
+	}
+
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), warn, logText)
+		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), warn, logText, resetString)
 	}
 
 	if logger.loggingMode == Both || logger.loggingMode == File {
 		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-		var writeBytes = []byte("[" + time.Now().String() + "] " + warn + ":" + logText)
+		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + warn + ":" + logText + resetString)
 		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
 // Err Outputs error information to the logging destination
 func (logger *Logger) Err(logText string) {
+	var colorString = ""
+	var resetString = ""
+	if logger.colorize {
+		colorString = colorErr
+		resetString = colorReset
+	}
+
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), err, logText)
+		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), err, logText, resetString)
 	}
 
 	if logger.loggingMode == Both || logger.loggingMode == File {
 		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-		var writeBytes = []byte("[" + time.Now().String() + "] " + err + ":" + logText)
+		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + err + ":" + logText + resetString)
 		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
 // Fatal Outputs fatal information to the logging desination
 func (logger *Logger) Fatal(logText string) {
+	var colorString = ""
+	var resetString = ""
+	if logger.colorize {
+		colorString = colorFatal
+		resetString = colorReset
+	}
+
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), fatal, logText)
+		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), fatal, logText, resetString)
 	}
 
 	if logger.loggingMode == Both || logger.loggingMode == File {
 		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-		var writeBytes = []byte("[" + time.Now().String() + "] " + fatal + ":" + logText)
+		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + fatal + ":" + logText + resetString)
 		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
@@ -133,7 +163,7 @@ func (logger *Logger) IsUninitialized() bool {
 }
 
 // SetupLoggerWithFilename Sets up and returns a logger instance.
-func SetupLoggerWithFilename(logMode int, logDirectory string, logFile string) Logger {
+func SetupLoggerWithFilename(logMode int, logDirectory string, logFile string, shouldColorize bool) Logger {
 	// Validate parmaters
 	if logMode != File && logMode != Screen && logMode != Both {
 		panic("Log mode must either be File, Screen, or Both. Goodbye")
@@ -155,6 +185,6 @@ func SetupLoggerWithFilename(logMode int, logDirectory string, logFile string) L
 		}
 	}
 
-	logger := Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile}
+	logger := Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize}
 	return logger
 }
