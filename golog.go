@@ -4,142 +4,157 @@
 
 	Structure initialization:
 		Appender_Mode: Either DEBUG, SCREEN, or BOTH
-		Appender_File: 
+		Appender_File:
 
 	Author: Gleb Nikonorov
 */
 
-package golog;
+package golog
 
-import "io/ioutil"
-import "fmt"
-import "os"
-import "time"
+import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
+)
 
-const FATAL = "FATAL"			// Non-recoverable error.
-const ERROR = "ERROR"			// A recoverable error
-const WARNING = "WARNING"		// Indicator of potential problems
-const INFO = "INFO"			// Non severe log information. Should be used for things like user input
-const DEBUG = "DEBUG"			// This mode should be used debug information 
+const (
+	// Logging modes for the logger
+	fatal = "FATAL"   // Non-recoverable error.
+	err   = "ERROR"   // A recoverable error
+	warn  = "WARNING" // Indicator of potential problems
+	info  = "INFO"    // Non severe log information. Should be used for things like user input
+	debug = "DEBUG"   // This mode should be used debug information
 
-// Logging modes for the logger
-const FILE = 1			// Outputs information to a log file
-const SCREEN = 2		// Outputs information to the screen
-const BOTH = 3			// Outputs information to both file and screen
+	// File indicates information will be outputted to a log file
+	File = 1
 
-// Struct containing the logger object used by the Go Logger
+	// Screen indicates information will be outputted to the screen
+	Screen = 2
+
+	// Both indicates information will be outted to both file and screen
+	Both = 3
+
+	// These are constants for terminal colors
+	colorFatal = "\x1B[34" // This is blue
+	colorErr   = "\x1B[31" // This is red
+	colorWarn  = "\x1B[33" // This is yellow
+	colorDebug = "\x1B[32" // This is green
+	// Info is left in the native terminal color
+)
+
+// Logger is representative of the logger for use in other go programs
 // Contains the following fields:
-//	logging_mode: Must be either FILE, SCREEN, or BOTH
-//	logging_directory: The directory to store log files in. Must be a valid directory if logging_mode is SCREEN or BOTH
-//	logging_file: The name of the log file to output to. Must be a valid file name of logging_mode is SCREEN or BOTH
+//	loggingMode: Must be either File, Screen, or Both
+//	loggingDirectory: The directory to store log files in. Must be a valid directory if loggingMode is Screen or Both
+//	loggingFile: The name of the log file to output to. Must be a valid file name of loggingMode is Screen or Both
 //
 // The following methods are exposed by this structure:
-//	Debug(log_text string): Log debug output to log destination
-//	Info(log_text string): Log info output to log destination
-//	Warning(log_text string): Log warning output to log destination
-//	Err(log_text string): Log error output to log destination
-//	Fatal(log_text string): Log fatal output to log destination
-//	Setup_logger_with_filename(log_mode int, log_directory string, log_file string)
+//	Debug(logText string): Log debug output to log destination
+//	Info(logText string): Log info output to log destination
+//	Warning(logText string): Log warning output to log destination
+//	Err(logText string): Log error output to log destination
+//	Fatal(logText string): Log fatal output to log destination
 //	Is_Uninitialized: Returns true if this structure has not been allocated
 type Logger struct {
-	logging_mode int	 // The mode of the logger (Should be FILE, SCREEN, or BOTH)
-	logging_directory string // The directory to store logs in
-	logging_file string	 // The file to store logs in
+	loggingMode      int    // The mode of the logger (Should be FILE, SCREEN, or BOTH)
+	loggingDirectory string // The directory to store logs in
+	loggingFile      string // The file to store logs in
 }
 
-// func Debug Outputs DEBUG log information to the logging destination
-func (logger *Logger) Debug(log_text string) {
-	if(logger.logging_mode == SCREEN || logger.logging_mode == BOTH) {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), DEBUG, log_text)
-	} 
+// Debug Outputs debug log information to the logging destination
+func (logger *Logger) Debug(logText string) {
+	if logger.loggingMode == Screen || logger.loggingMode == Both {
+		fmt.Printf("[%s] %s: %s\n", time.Now().String(), debug, logText)
+	}
 
-	if(logger.logging_mode == BOTH || logger.logging_mode == FILE) {
-		var file_name = logger.logging_directory + "/" + logger.logging_file;
-		var write_bytes = []byte("[" + time.Now().String() + "] " + DEBUG + ":" + log_text)
-		ioutil.WriteFile(file_name, write_bytes, 0644)
+	if logger.loggingMode == Both || logger.loggingMode == File {
+		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
+		var writeBytes = []byte("[" + time.Now().String() + "] " + debug + ":" + logText)
+		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
-// func Info Outputs INFO log information to the logging destination
-func (logger *Logger) Info(log_text string) {
-	if(logger.logging_mode == SCREEN || logger.logging_mode == BOTH) {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), INFO, log_text)
-	} 
+// Info Outputs info log information to the logging destination
+func (logger *Logger) Info(logText string) {
+	if logger.loggingMode == Screen || logger.loggingMode == Both {
+		fmt.Printf("[%s] %s: %s\n", time.Now().String(), info, logText)
+	}
 
-	if(logger.logging_mode == BOTH || logger.logging_mode == FILE) {
-		var file_name = logger.logging_directory + "/" + logger.logging_file;
-		var write_bytes = []byte("[" + time.Now().String() + "] " + DEBUG + ":" + log_text)
-		ioutil.WriteFile(file_name, write_bytes, 0644)
+	if logger.loggingMode == Both || logger.loggingMode == File {
+		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
+		var writeBytes = []byte("[" + time.Now().String() + "] " + info + ":" + logText)
+		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
-// func Warning Outputs WARNING information to the logging destination
-func (logger *Logger) Warning(log_text string) {
-	if(logger.logging_mode == SCREEN || logger.logging_mode == BOTH) {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), WARNING, log_text)
-	} 
+// Warning Outputs warning information to the logging destination
+func (logger *Logger) Warning(logText string) {
+	if logger.loggingMode == Screen || logger.loggingMode == Both {
+		fmt.Printf("[%s] %s: %s\n", time.Now().String(), warn, logText)
+	}
 
-	if(logger.logging_mode == BOTH || logger.logging_mode == FILE) {
-		var file_name = logger.logging_directory + "/" + logger.logging_file;
-		var write_bytes = []byte("[" + time.Now().String() + "] " + DEBUG + ":" + log_text)
-		ioutil.WriteFile(file_name, write_bytes, 0644)
+	if logger.loggingMode == Both || logger.loggingMode == File {
+		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
+		var writeBytes = []byte("[" + time.Now().String() + "] " + warn + ":" + logText)
+		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
-// func Err Outputs ERROR information to the logging destination
-func (logger *Logger) Err(log_text string) {
-	if(logger.logging_mode == SCREEN || logger.logging_mode == BOTH) {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), ERROR, log_text)
-	} 
+// Err Outputs error information to the logging destination
+func (logger *Logger) Err(logText string) {
+	if logger.loggingMode == Screen || logger.loggingMode == Both {
+		fmt.Printf("[%s] %s: %s\n", time.Now().String(), err, logText)
+	}
 
-	if(logger.logging_mode == BOTH || logger.logging_mode == FILE) {
-		var file_name = logger.logging_directory + "/" + logger.logging_file;
-		var write_bytes = []byte("[" + time.Now().String() + "] " + DEBUG + ":" + log_text)
-		ioutil.WriteFile(file_name, write_bytes, 0644)
+	if logger.loggingMode == Both || logger.loggingMode == File {
+		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
+		var writeBytes = []byte("[" + time.Now().String() + "] " + err + ":" + logText)
+		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
-// func Fatal Outputs FATAL information to the logging desination
-func (logger *Logger) Fatal(log_text string) {
-	if(logger.logging_mode == SCREEN || logger.logging_mode == BOTH) {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), FATAL, log_text)
-	} 
+// Fatal Outputs fatal information to the logging desination
+func (logger *Logger) Fatal(logText string) {
+	if logger.loggingMode == Screen || logger.loggingMode == Both {
+		fmt.Printf("[%s] %s: %s\n", time.Now().String(), fatal, logText)
+	}
 
-	if(logger.logging_mode == BOTH || logger.logging_mode == FILE) {
-		var file_name = logger.logging_directory + "/" + logger.logging_file;
-		var write_bytes = []byte("[" + time.Now().String() + "] " + DEBUG + ":" + log_text)
-		ioutil.WriteFile(file_name, write_bytes, 0644)
+	if logger.loggingMode == Both || logger.loggingMode == File {
+		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
+		var writeBytes = []byte("[" + time.Now().String() + "] " + fatal + ":" + logText)
+		ioutil.WriteFile(fileName, writeBytes, 0644)
 	}
 }
 
-// func Is_Uninitialized: Returns true if this structure has not yet been allocated
-func (logger *Logger) Is_Uninitialized() bool {
-	return logger.logging_mode == 0
+// IsUninitialized Returns true if this structure has not yet been allocated
+func (logger *Logger) IsUninitialized() bool {
+	return logger.loggingMode == 0
 }
 
-// func Setup_logger_with_filename Sets up and returns a logger instance.
-func Setup_logger_with_filename (log_mode int, log_directory string, log_file string) Logger{
-	// Validate our parmaters
-	if(log_mode != FILE && log_mode != SCREEN && log_mode != BOTH) {
-		panic("Log mode must either be FILE, SCREEN, or BOTH. Goodbye")
+// SetupLoggerWithFilename Sets up and returns a logger instance.
+func SetupLoggerWithFilename(logMode int, logDirectory string, logFile string) Logger {
+	// Validate parmaters
+	if logMode != File && logMode != Screen && logMode != Both {
+		panic("Log mode must either be File, Screen, or Both. Goodbye")
 	}
 
-	if(log_mode == FILE || log_mode == BOTH) {
+	if logMode == File || logMode == Both {
 		// We're logging to a file, make sure that the directory given to us was valid
-		fileInfo, err := os.Stat(log_directory)
-		if(err != nil) {
-			if (os.IsNotExist(err)) {
+		fileInfo, err := os.Stat(logDirectory)
+		if err != nil {
+			if os.IsNotExist(err) {
 				// The file does not exist
 				panic("Please provide a valid log directory. Goodbye.")
 			}
 		}
 
 		// Check to make sure we actually gave a directory
-		if(!fileInfo.IsDir()) {
+		if !fileInfo.IsDir() {
 			panic("You must give a directory! Not a file!")
 		}
 	}
 
-	logger := Logger{logging_mode:log_mode, logging_directory:log_directory, logging_file:log_file}
+	logger := Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile}
 	return logger
 }
