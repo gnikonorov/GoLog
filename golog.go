@@ -12,7 +12,11 @@
 package golog
 
 import (
+	"bufio"
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 )
@@ -25,6 +29,8 @@ const (
 	modeInfo  = "INFO"    // Non severe log information. Should be used for things like user input
 	modeDebug = "DEBUG"   // This mode should be used debug information
 
+	// Below are logging output modes
+
 	// File indicates information will be outputted to a log file
 	File = 1
 
@@ -33,6 +39,20 @@ const (
 
 	// Both indicates information will be outted to both file and screen
 	Both = 3
+
+	// Below are init log file options
+
+	// FileAppend instructs the logger to append onto an existing log if one exists
+	FileAppend = 4
+
+	// FileCompress instructs the logger to compress an existing log file if one exists
+	FileCompress = 5
+
+	// FileDelete instructs the logger to remove an existing log file if one exits
+	FileDelete = 6
+
+	// FileActionNone indicates no file actions ( e.g.: when user is writing to screen only
+	FileActionNone = 7
 
 	// These are constants for terminal colors
 	// Info is left in the native terminal color
@@ -63,6 +83,72 @@ type Logger struct {
 	loggingMode      int    // The mode of the logger (Should be FILE, SCREEN, or BOTH)
 }
 
+// Compress file validatedFilePath
+func compressFile(filePath string) {
+	fileHandle, err := os.Open(filePath)
+	if err != nil {
+		panic("Could not stat file " + filePath + " because " + err.Error())
+	}
+	defer fileHandle.Close()
+
+	fileInfo, err := fileHandle.Stat()
+	if err != nil {
+		panic("Could not get file info for " + filePath + " because " + err.Error())
+	}
+	var fileSize = fileInfo.Size()
+
+	// get file contents
+	fileBytes := make([]byte, fileSize)
+	fileReader := bufio.NewReader(fileHandle)
+	_, err = fileReader.Read(fileBytes)
+	if err != nil {
+		panic("Could not get file bytes of " + filePath + " because " + err.Error())
+	}
+
+	// write out .gz file, appending file last modified time to make a unique, identifiable name
+	var byteBuffer bytes.Buffer
+	zipWriter := gzip.NewWriter(&byteBuffer)
+	zipWriter.Write(fileBytes)
+	zipWriter.Close()
+
+	var fileModTime = fileInfo.ModTime()
+	var fileModTimeString = fileModTime.Format("20060102150405")
+
+	err = ioutil.WriteFile(filePath+"."+fileModTimeString+".gz", byteBuffer.Bytes(), fileInfo.Mode())
+	if err != nil {
+		panic("Could not create zip of " + filePath + " because " + err.Error())
+	}
+
+	// delete source file
+	err = os.Remove(filePath)
+	if err != nil {
+		panic("Could not delete the log file because: " + err.Error() + ". Terminating.")
+	}
+
+}
+
+// Check to make sure that file fullPathToLogFile exists and return true/false
+func doesLoggingFileExist(fullPathToLogFile string) bool {
+	// check to see if a log file already exists. If it does, delete it
+	fileInfo, err := os.Stat(fullPathToLogFile)
+	if err != nil {
+		// if the file does not exist there's nothing to do
+		// if the error is anything else panic
+		if !os.IsNotExist(err) {
+			panic("Could not stat the log file because: " + err.Error() + ". Terminating.")
+		} else {
+			return false
+		}
+	}
+
+	if fileInfo.IsDir() {
+		// this is unlikely, but possible
+		panic("The log file you specified was a directory! Terminating.")
+	}
+
+	return true
+}
+
 // Debug Outputs debug log information to the logging destination
 func (logger *Logger) Debug(logText string) {
 	var colorString = ""
@@ -81,6 +167,7 @@ func (logger *Logger) Debug(logText string) {
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
 		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		defer logHandle.Close()
 		if err != nil {
 			// can't open file
 			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
@@ -106,6 +193,7 @@ func (logger *Logger) Info(logText string) {
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
 		logHandle, err := os.OpenFile(fileName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		defer logHandle.Close()
 		if err != nil {
 			// can't open file
 			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
@@ -137,6 +225,7 @@ func (logger *Logger) Warning(logText string) {
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
 		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		defer logHandle.Close()
 		if err != nil {
 			// can't open file
 			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
@@ -168,6 +257,7 @@ func (logger *Logger) Err(logText string) {
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
 		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		defer logHandle.Close()
 		if err != nil {
 			// can't open file
 			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
@@ -199,6 +289,7 @@ func (logger *Logger) Fatal(logText string) {
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
 		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		defer logHandle.Close()
 		if err != nil {
 			// can't open file
 			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
@@ -218,7 +309,8 @@ func (logger *Logger) IsUninitialized() bool {
 }
 
 // SetupLoggerWithFilename Sets up and returns a logger instance.
-func SetupLoggerWithFilename(logMode int, logDirectory string, logFile string, shouldColorize bool) Logger {
+// TODO: It looks like panic is the wrong thing to use in some locations in this function
+func SetupLoggerWithFilename(logMode int, logFileStartupAction int, logDirectory string, logFile string, shouldColorize bool) Logger {
 	// Validate parmaters
 	if logMode != File && logMode != Screen && logMode != Both {
 		panic("Log mode must either be File, Screen, or Both. Goodbye")
@@ -229,14 +321,33 @@ func SetupLoggerWithFilename(logMode int, logDirectory string, logFile string, s
 		fileInfo, err := os.Stat(logDirectory)
 		if err != nil {
 			if os.IsNotExist(err) {
-				// The file does not exist
+				// The directory does not exist
 				panic("Please provide a valid log directory. Goodbye.")
+			} else {
+				panic("Could not stat the log directory because: " + err.Error() + ". Terminating.")
 			}
 		}
 
 		// Check to make sure we actually gave a directory
 		if !fileInfo.IsDir() {
 			panic("You must give a directory! Not a file!")
+		}
+
+		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
+		// note that file append is default behavior
+		var fullPathToLogFile = logDirectory + "/" + logFile
+		var fileExists = doesLoggingFileExist(fullPathToLogFile)
+		if fileExists {
+			if logFileStartupAction == FileCompress {
+				// compress the file
+				compressFile(fullPathToLogFile)
+			} else if logFileStartupAction == FileDelete {
+				// delete the file
+				err := os.Remove(fullPathToLogFile)
+				if err != nil {
+					panic("Could not delete the log file because: " + err.Error() + ". Terminating.")
+				}
+			}
 		}
 	}
 
