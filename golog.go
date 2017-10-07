@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,9 @@ const (
 	colorFatal = "\x1B[0;37;41m" // This is blue
 	colorReset = "\x1B[0m"       // resets an applied terminal color
 	colorWarn  = "\x1B[33m"      // This is yellow
+
+	outStreamStdErr = 10
+	outStreamStdOut = 11
 )
 
 // Logger is representative of the logger for use in other go programs
@@ -149,9 +153,17 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 	return true
 }
 
-func writeLog(colorString string, resetString string, loggingMode string, logText string, logger *Logger) {
+func writeLog(colorString string, resetString string, loggingMode string, logText string, logger *Logger, outputStream int) {
+	var logTime = time.Now().String()
+
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), modeDebug, logText, resetString)
+		logStrings := []string{colorString, "[", logTime, "] ", loggingMode, ": ", logText, resetString, "\n"}
+		var logString = strings.Join(logStrings, "")
+		if outputStream == outStreamStdErr {
+			os.Stderr.WriteString(logString)
+		} else {
+			fmt.Printf(logString)
+		}
 	}
 
 	if logger.loggingMode == Both || logger.loggingMode == File {
@@ -165,7 +177,7 @@ func writeLog(colorString string, resetString string, loggingMode string, logTex
 			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
 		}
 
-		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + modeDebug + ":" + logText + resetString + "\n")
+		var writeBytes = []byte(colorString + "[" + logTime + "] " + loggingMode + ": " + logText + resetString + "\n")
 		_, err = logHandle.Write(writeBytes)
 		if err != nil {
 			panic("Unable to write to log file " + fileName + " because " + err.Error())
@@ -182,7 +194,7 @@ func (logger *Logger) Debug(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeDebug, logText, logger)
+	writeLog(colorString, resetString, modeDebug, logText, logger, outStreamStdOut)
 }
 
 // Info Outputs info log information to the logging destination
@@ -190,7 +202,7 @@ func (logger *Logger) Info(logText string) {
 	var colorString = ""
 	var resetString = ""
 
-	writeLog(colorString, resetString, modeInfo, logText, logger)
+	writeLog(colorString, resetString, modeInfo, logText, logger, outStreamStdOut)
 }
 
 // Warning Outputs warning information to the logging destination
@@ -202,7 +214,7 @@ func (logger *Logger) Warning(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeWarn, logText, logger)
+	writeLog(colorString, resetString, modeWarn, logText, logger, outStreamStdErr)
 }
 
 // Err Outputs error information to the logging destination
@@ -214,7 +226,7 @@ func (logger *Logger) Err(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeErr, logText, logger)
+	writeLog(colorString, resetString, modeErr, logText, logger, outStreamStdErr)
 }
 
 // Fatal Outputs fatal information to the logging desination
@@ -226,7 +238,7 @@ func (logger *Logger) Fatal(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeFatal, logText, logger)
+	writeLog(colorString, resetString, modeFatal, logText, logger, outStreamStdErr)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
