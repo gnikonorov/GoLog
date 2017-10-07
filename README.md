@@ -40,8 +40,78 @@ The user may also specify `FileActionNone`. For now, this is logically equivalen
 The logger is a struct initialized by calling `SetupLoggerWithFilename`.
 The following arguments are passed in during initialization:
 
-+ `logMode (int)` - This is the mode the logger will operate in, as described in `Logging Modes`
-+ `logFileStartupAction (int)` - The startup action taken by the logger as described in section `Startup Actions`
++ `logMode (int)` - The mode the logger will operate in, as described in `Logging Modes`
++ `logFileStartupAction (int)` - Startup action taken by the logger as described in section `Startup Actions`
 + `logDirectory (string)` - If `logMode` is `Both` or `File`, this is the directory to which the logger will write logs.
 + `logFile (string)` - If the `logMode` is `Both` or `File`, this is the file to which the logger will write logs.
 + `shouldColorize (bool)` - If set to `true` logging will be colorized as described in section `Logging Modes`.
+
+### Initialization From Struct
+
+The logger may be initialized by creating a `LoggingConfig` struct and passing it to `SetupLoggerFromStruct`. 
+
+The definition for the struct is shown below:
+
+```
+type LoggingConfig struct {
+	Name                 string // The logger profile name
+	LogMode              string // The logging mode
+	LogFileStartupAction string // The action the logger will take on startup
+	LogDirectory         string // The directory to which the logger writes
+	LogFile              string // The name of the log file to write to
+	ShouldColorize       bool   // Indicates if we should output information in color
+}
+```
+A sample initialization would thus be as follows:
+
+```
+config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/home/gnikonorov/projects/go/src/tester", LogFile: "test.log", ShouldColorize: true}
+logger := golog.SetupLoggerFromStruct(&config)
+```
+### Initialization From JSON File
+
+The logger may be initialized by specifying the path to a `JSON` file that contains its definition to `SetupLoggerFromConfigFile` along with the configuration profile name `name`. The `name` is simply what you have chosen to name a current configuration.
+
+A sample configuration file containing 3 profiles is shown below. Note how each entry has a configuration name `name`.
+
+```
+[{
+	"name": "test1",
+	"logMode": "FILE",
+	"logFileStartupAction": "NONE",
+	"logDirectory": "/home/gnikonorov/projects/go/src/tester",
+	"logFile": "test1.log",
+	"shouldColorize": true
+
+}, {
+	"name": "test2",
+	"logMode": "SCREEN",
+	"logFileStartupAction": "APPEND",
+	"logDirectory": "/home/user/gnikonorov/logs",
+	"logFile": "test2.log",
+	"shouldColorize": true
+}, {
+	"name": "test3",
+	"logMode": "BOTH",
+	"logFileStartupAction": "COMPRESS",
+	"logDirectory": "/home/gnikonorov/projects/go/src/tester/logs",
+	"logFile": "test3.log",
+	"shouldColorize": true
+}]
+```
+
+If we wanted to initialize a logger to have the profile of `test1`, we would do the following:
+
+```
+var profile = "test1"
+var configFile = "/home/gnikonorov/.golog/conf.json"
+logger := golog.SetupLoggerFromConfigFile(configFile, profile)
+```
+
+### Initialization From Raw Parameters
+
+It is also possible to initialize the logger by passing in raw parameters. For example:
+
+```
+logger := golog.SetupLoggerFromFields(golog.Both, golog.FileActionNone, "/home/gnikonorov/projects/go/src/tester", "test.log", true)
+```

@@ -15,6 +15,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,27 +34,27 @@ const (
 	// Below are logging output modes
 
 	// File indicates information will be outputted to a log file
-	File = 1
+	File = "FILE"
 
 	// Screen indicates information will be outputted to the screen
-	Screen = 2
+	Screen = "SCREEN"
 
 	// Both indicates information will be outted to both file and screen
-	Both = 3
+	Both = "BOTH"
 
 	// Below are init log file options
 
 	// FileAppend instructs the logger to append onto an existing log if one exists
-	FileAppend = 4
+	FileAppend = "APPEND"
 
 	// FileCompress instructs the logger to compress an existing log file if one exists
-	FileCompress = 5
+	FileCompress = "COMPRESS"
 
 	// FileDelete instructs the logger to remove an existing log file if one exits
-	FileDelete = 6
+	FileDelete = "DELETE"
 
 	// FileActionNone indicates no file actions ( e.g.: when user is writing to screen only
-	FileActionNone = 7
+	FileActionNone = "NONE"
 
 	// These are constants for terminal colors
 	// Info is left in the native terminal color
@@ -67,8 +68,19 @@ const (
 	outStreamStdOut = 11
 )
 
+// LoggingConfig holds a logging configuration for the logger and is used during logger initialization
+type LoggingConfig struct {
+	Name                 string // The logger profile name
+	LogMode              string // The logging mode
+	LogFileStartupAction string // The action the logger will take on startuip
+	LogDirectory         string // The directory to which the logger writes
+	LogFile              string // The name of the log file to write to
+	ShouldColorize       bool   // Indicates if we should output information in color
+}
+
 // Logger is representative of the logger for use in other go programs
 // Contains the following fields:
+//	colorize: Boolean value indicating if logging out should be colorized
 //	loggingMode: Must be either File, Screen, or Both
 //	loggingDirectory: The directory to store log files in. Must be a valid directory if loggingMode is Screen or Both
 //	loggingFile: The name of the log file to output to. Must be a valid file name of loggingMode is Screen or Both
@@ -84,7 +96,7 @@ type Logger struct {
 	colorize         bool   // If true, print log output in color
 	loggingDirectory string // The directory to store logs in
 	loggingFile      string // The file to store logs in
-	loggingMode      int    // The mode of the logger (Should be FILE, SCREEN, or BOTH)
+	loggingMode      string // The mode of the logger (Should be FILE, SCREEN, or BOTH)
 }
 
 // Compress file validatedFilePath
@@ -185,6 +197,48 @@ func writeLog(colorString string, resetString string, loggingMode string, logTex
 	}
 }
 
+// validate a loggers configuration as valid
+func validateLoggerConfig(logMode string, logDirectory string, logFile string, logFileStartupAction string) {
+	if logMode != File && logMode != Screen && logMode != Both {
+		panic("Log mode must either be File, Screen, or Both. Goodbye")
+	}
+
+	if logMode == File || logMode == Both {
+		// We're logging to a file, make sure that the directory given to us was valid
+		fileInfo, err := os.Stat(logDirectory)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// The directory does not exist
+				panic("Please provide a valid log directory. Goodbye.")
+			} else {
+				panic("Could not stat the log directory because: " + err.Error() + ". Terminating.")
+			}
+		}
+
+		// Check to make sure we actually gave a directory
+		if !fileInfo.IsDir() {
+			panic("You must give a directory! Not a file!")
+		}
+
+		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
+		// note that file append is default behavior
+		var fullPathToLogFile = logDirectory + "/" + logFile
+		var fileExists = doesLoggingFileExist(fullPathToLogFile)
+		if fileExists {
+			if logFileStartupAction == FileCompress {
+				// compress the file
+				compressFile(fullPathToLogFile)
+			} else if logFileStartupAction == FileDelete {
+				// delete the file
+				err := os.Remove(fullPathToLogFile)
+				if err != nil {
+					panic("Could not delete the log file because: " + err.Error() + ". Terminating.")
+				}
+			}
+		}
+	}
+}
+
 // Debug Outputs debug log information to the logging destination
 func (logger *Logger) Debug(logText string) {
 	var colorString = ""
@@ -243,51 +297,51 @@ func (logger *Logger) Fatal(logText string) {
 
 // IsUninitialized Returns true if this structure has not yet been allocated
 func (logger *Logger) IsUninitialized() bool {
-	return logger.loggingMode == 0
+	return logger.loggingMode == ""
 }
 
-// SetupLoggerWithFilename Sets up and returns a logger instance.
-// TODO: It looks like panic is the wrong thing to use in some locations in this function
-func SetupLoggerWithFilename(logMode int, logFileStartupAction int, logDirectory string, logFile string, shouldColorize bool) Logger {
-	// Validate parmaters
-	if logMode != File && logMode != Screen && logMode != Both {
-		panic("Log mode must either be File, Screen, or Both. Goodbye")
+// SetupLoggerFromConfigFile sets up and returns a logger instance as specified in fullFilePath for profile
+func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
+	// get bytes of file
+	fileBytes, err := ioutil.ReadFile(fullFilePath)
+	if err != nil {
+		// don't tolerate any error while reading file
+		panic("Could not read file because: " + err.Error() + "!")
 	}
 
-	if logMode == File || logMode == Both {
-		// We're logging to a file, make sure that the directory given to us was valid
-		fileInfo, err := os.Stat(logDirectory)
-		if err != nil {
-			if os.IsNotExist(err) {
-				// The directory does not exist
-				panic("Please provide a valid log directory. Goodbye.")
-			} else {
-				panic("Could not stat the log directory because: " + err.Error() + ". Terminating.")
-			}
-		}
+	// parse out our json
+	loggingConfigs := make([]LoggingConfig, 0)
+	err = json.Unmarshal(fileBytes, &loggingConfigs)
+	if err != nil {
+		panic("Failed to decode config file because: " + err.Error() + ". Ensure it is in JSON format.")
+	}
 
-		// Check to make sure we actually gave a directory
-		if !fileInfo.IsDir() {
-			panic("You must give a directory! Not a file!")
-		}
+	for _, config := range loggingConfigs {
+		fmt.Printf("The object is %+v\n", config)
+		fmt.Printf("Configname is " + config.Name + "\n")
+		if config.Name == profile {
+			validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
 
-		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
-		// note that file append is default behavior
-		var fullPathToLogFile = logDirectory + "/" + logFile
-		var fileExists = doesLoggingFileExist(fullPathToLogFile)
-		if fileExists {
-			if logFileStartupAction == FileCompress {
-				// compress the file
-				compressFile(fullPathToLogFile)
-			} else if logFileStartupAction == FileDelete {
-				// delete the file
-				err := os.Remove(fullPathToLogFile)
-				if err != nil {
-					panic("Could not delete the log file because: " + err.Error() + ". Terminating.")
-				}
-			}
+			logger := Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
+			return logger
 		}
 	}
+
+	// if we get here we couldn't find any config for the profile
+	panic("Configuration profile " + profile + " not found in config file " + fullFilePath + "!")
+}
+
+// SetupLoggerFromStruct sets up and returns a logger instance from a LoggingConfigStruct
+func SetupLoggerFromStruct(config *LoggingConfig) Logger {
+	validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+
+	logger := Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
+	return logger
+}
+
+// SetupLoggerFromFields Sets up and returns a logger instance from passed in individual fields
+func SetupLoggerFromFields(logMode string, logFileStartupAction string, logDirectory string, logFile string, shouldColorize bool) Logger {
+	validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction)
 
 	logger := Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize}
 	return logger
