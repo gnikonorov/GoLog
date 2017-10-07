@@ -149,15 +149,7 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 	return true
 }
 
-// Debug Outputs debug log information to the logging destination
-func (logger *Logger) Debug(logText string) {
-	var colorString = ""
-	var resetString = ""
-	if logger.colorize {
-		colorString = colorDebug
-		resetString = colorReset
-	}
-
+func writeLog(colorString string, resetString string, loggingMode string, logText string, logger *Logger) {
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
 		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), modeDebug, logText, resetString)
 	}
@@ -181,30 +173,24 @@ func (logger *Logger) Debug(logText string) {
 	}
 }
 
+// Debug Outputs debug log information to the logging destination
+func (logger *Logger) Debug(logText string) {
+	var colorString = ""
+	var resetString = ""
+	if logger.colorize {
+		colorString = colorDebug
+		resetString = colorReset
+	}
+
+	writeLog(colorString, resetString, modeDebug, logText, logger)
+}
+
 // Info Outputs info log information to the logging destination
-// TODO: Consider refactoring logging level classes...looks like they can just be one class
 func (logger *Logger) Info(logText string) {
-	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("[%s] %s: %s\n", time.Now().String(), modeInfo, logText)
-	}
+	var colorString = ""
+	var resetString = ""
 
-	if logger.loggingMode == Both || logger.loggingMode == File {
-		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-
-		// append to the log file, creating if one does not exist. In case of any error, panic
-		logHandle, err := os.OpenFile(fileName, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-		defer logHandle.Close()
-		if err != nil {
-			// can't open file
-			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
-		}
-
-		var writeBytes = []byte("[" + time.Now().String() + "] " + modeInfo + ":" + logText + "\n")
-		_, err = logHandle.Write(writeBytes)
-		if err != nil {
-			panic("Unable to write to log file " + fileName + " because " + err.Error())
-		}
-	}
+	writeLog(colorString, resetString, modeInfo, logText, logger)
 }
 
 // Warning Outputs warning information to the logging destination
@@ -216,27 +202,7 @@ func (logger *Logger) Warning(logText string) {
 		resetString = colorReset
 	}
 
-	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), modeWarn, logText, resetString)
-	}
-
-	if logger.loggingMode == Both || logger.loggingMode == File {
-		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-
-		// append to the log file, creating if one does not exist. In case of any error, panic
-		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
-		defer logHandle.Close()
-		if err != nil {
-			// can't open file
-			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
-		}
-
-		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + modeWarn + ":" + logText + resetString + "\n")
-		_, err = logHandle.Write(writeBytes)
-		if err != nil {
-			panic("Unable to write to log file " + fileName + " because " + err.Error())
-		}
-	}
+	writeLog(colorString, resetString, modeWarn, logText, logger)
 }
 
 // Err Outputs error information to the logging destination
@@ -248,27 +214,7 @@ func (logger *Logger) Err(logText string) {
 		resetString = colorReset
 	}
 
-	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), modeErr, logText, resetString)
-	}
-
-	if logger.loggingMode == Both || logger.loggingMode == File {
-		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-
-		// append to the log file, creating if one does not exist. In case of any error, panic
-		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
-		defer logHandle.Close()
-		if err != nil {
-			// can't open file
-			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
-		}
-
-		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + modeErr + ":" + logText + resetString + "\n")
-		_, err = logHandle.Write(writeBytes)
-		if err != nil {
-			panic("Unable to write to log file " + fileName + " because " + err.Error())
-		}
-	}
+	writeLog(colorString, resetString, modeErr, logText, logger)
 }
 
 // Fatal Outputs fatal information to the logging desination
@@ -280,27 +226,7 @@ func (logger *Logger) Fatal(logText string) {
 		resetString = colorReset
 	}
 
-	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		fmt.Printf("%s[%s] %s: %s%s\n", colorString, time.Now().String(), modeFatal, logText, resetString)
-	}
-
-	if logger.loggingMode == Both || logger.loggingMode == File {
-		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
-
-		// append to the log file, creating if one does not exist. In case of any error, panic
-		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
-		defer logHandle.Close()
-		if err != nil {
-			// can't open file
-			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
-		}
-
-		var writeBytes = []byte(colorString + "[" + time.Now().String() + "] " + modeFatal + ":" + logText + resetString + "\n")
-		_, err = logHandle.Write(writeBytes)
-		if err != nil {
-			panic("Unable to write to log file " + fileName + " because " + err.Error())
-		}
-	}
+	writeLog(colorString, resetString, modeFatal, logText, logger)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
