@@ -13,6 +13,7 @@ The logging levels shown below are provided by this logger, and are colorized if
 + `Warning` ( yellow text on the terminal's native background )
 + `Error`   ( red text on the terminal's native background )
 + `Fatal`   ( white text on a red background )
++ `Panic`   ( white text on a red background )
 
 ## Logging Modes
 

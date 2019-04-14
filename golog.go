@@ -1,10 +1,5 @@
 /*
-
-	Log4Go Like logger for the go programming language
-
-	Structure initialization:
-		Appender_Mode: Either DEBUG, SCREEN, or BOTH
-		Appender_File:
+	Log4* Like logger for the Go programming language
 
 	Author: Gleb Nikonorov
 */
@@ -25,11 +20,12 @@ import (
 
 const (
 	// Logging modes for the logger
-	modeFatal = "FATAL"   // Non-recoverable error.
-	modeErr   = "ERROR"   // A recoverable error
-	modeWarn  = "WARNING" // Indicator of potential problems
-	modeInfo  = "INFO"    // Non severe log information. Should be used for things like user input
 	modeDebug = "DEBUG"   // This mode should be used debug information
+	modeErr   = "ERROR"   // A recoverable error
+	modeFatal = "FATAL"   // Non-recoverable error.
+	modeInfo  = "INFO"    // Non severe log information. Should be used for things like user input
+	modePanic = "PANIC"	  // Akin to an exception. Logs and throws a panic
+	modeWarn  = "WARNING" // Indicator of potential problems
 
 	// Below are logging output modes
 
@@ -60,7 +56,8 @@ const (
 	// Info is left in the native terminal color
 	colorDebug = "\x1B[32m"      // This is green
 	colorErr   = "\x1B[31m"      // This is red
-	colorFatal = "\x1B[0;37;41m" // This is blue
+	colorFatal = "\x1B[0;37;41m" // This is white text on a red background
+	colorPanic = "\x1B[0;37;41m" // This is white text on a red background
 	colorReset = "\x1B[0m"       // resets an applied terminal color
 	colorWarn  = "\x1B[33m"      // This is yellow
 
@@ -165,7 +162,9 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 	return true
 }
 
-func writeLog(colorString string, resetString string, loggingMode string, logText string, logger *Logger, outputStream int) {
+// writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
+// it will also raise a panic with the user provided log text
+func writeLog(colorString string, resetString string, loggingMode string, logText string, logger *Logger, outputStream int, shouldPanic bool) {
 	var logTime = time.Now().String()
 
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
@@ -194,6 +193,10 @@ func writeLog(colorString string, resetString string, loggingMode string, logTex
 		if err != nil {
 			panic("Unable to write to log file " + fileName + " because " + err.Error())
 		}
+	}
+
+	if shouldPanic {
+		panic(logText)
 	}
 }
 
@@ -248,7 +251,7 @@ func (logger *Logger) Debug(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeDebug, logText, logger, outStreamStdOut)
+	writeLog(colorString, resetString, modeDebug, logText, logger, outStreamStdOut, false)
 }
 
 // Info Outputs info log information to the logging destination
@@ -256,7 +259,7 @@ func (logger *Logger) Info(logText string) {
 	var colorString = ""
 	var resetString = ""
 
-	writeLog(colorString, resetString, modeInfo, logText, logger, outStreamStdOut)
+	writeLog(colorString, resetString, modeInfo, logText, logger, outStreamStdOut, false)
 }
 
 // Warning Outputs warning information to the logging destination
@@ -268,7 +271,7 @@ func (logger *Logger) Warning(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeWarn, logText, logger, outStreamStdErr)
+	writeLog(colorString, resetString, modeWarn, logText, logger, outStreamStdErr, false)
 }
 
 // Err Outputs error information to the logging destination
@@ -280,10 +283,11 @@ func (logger *Logger) Err(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeErr, logText, logger, outStreamStdErr)
+	writeLog(colorString, resetString, modeErr, logText, logger, outStreamStdErr, false)
 }
 
-// Fatal Outputs fatal information to the logging desination
+// Fatal Outputs fatal information to the logging desination but does not cause a panic,
+// use 'Panic' instead.
 func (logger *Logger) Fatal(logText string) {
 	var colorString = ""
 	var resetString = ""
@@ -292,7 +296,19 @@ func (logger *Logger) Fatal(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeFatal, logText, logger, outStreamStdErr)
+	writeLog(colorString, resetString, modeFatal, logText, logger, outStreamStdErr, false)
+}
+
+// Panic Outputs fatal information to the logging desination and causes a panic
+func (logger *Logger) Panic(logText string) {
+	var colorString = ""
+	var resetString = ""
+	if logger.colorize {
+		colorString = colorPanic
+		resetString = colorReset
+	}
+
+	writeLog(colorString, resetString, modePanic, logText, logger, outStreamStdErr, true)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
