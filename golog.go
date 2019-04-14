@@ -94,6 +94,7 @@ type LoggingConfig struct {
 //	Is_Uninitialized: Returns true if this structure has not been allocated
 type Logger struct {
 	colorize         bool   // If true, print log output in color
+	context          string // The context is the value prepended to each log line and set by the caller via 'SetContext'
 	loggingDirectory string // The directory to store logs in
 	loggingFile      string // The file to store logs in
 	loggingMode      string // The mode of the logger (Should be FILE, SCREEN, or BOTH)
@@ -217,11 +218,11 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 
 // writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
 // it will also raise a panic with the user provided log text
-func writeLog(colorString string, resetString string, loggingMode string, logText string, logger *Logger, outputStream int, shouldPanic bool) {
+func (logger *Logger) writeLog(colorString string, resetString string, loggingMode string, logText string, outputStream int, shouldPanic bool) {
 	var logTime = time.Now().String()
 
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		logStrings := []string{colorString, "[", logTime, "] ", loggingMode, ": ", logText, resetString, "\n"}
+		logStrings := []string{colorString, "[", logTime, "] ", loggingMode, ": ", logger.context, logText, resetString, "\n"}
 		var logString = strings.Join(logStrings, "")
 		if outputStream == outStreamStdErr {
 			os.Stderr.WriteString(logString)
@@ -262,6 +263,7 @@ func writeLog(colorString string, resetString string, loggingMode string, logTex
 		stringBuilder.WriteString("] ")
 		stringBuilder.WriteString(loggingMode)
 		stringBuilder.WriteString(": ")
+		stringBuilder.WriteString(logger.context)
 		stringBuilder.WriteString(logText)
 		stringBuilder.WriteString(resetString)
 		stringBuilder.WriteString("\n")
@@ -375,7 +377,7 @@ func (logger *Logger) Debug(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeDebug, logText, logger, outStreamStdOut, false)
+	logger.writeLog(colorString, resetString, modeDebug, logText, outStreamStdOut, false)
 }
 
 // Info Outputs info log information to the logging destination
@@ -383,7 +385,7 @@ func (logger *Logger) Info(logText string) {
 	var colorString = ""
 	var resetString = ""
 
-	writeLog(colorString, resetString, modeInfo, logText, logger, outStreamStdOut, false)
+	logger.writeLog(colorString, resetString, modeInfo, logText, outStreamStdOut, false)
 }
 
 // Warning Outputs warning information to the logging destination
@@ -395,7 +397,7 @@ func (logger *Logger) Warning(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeWarn, logText, logger, outStreamStdErr, false)
+	logger.writeLog(colorString, resetString, modeWarn, logText, outStreamStdErr, false)
 }
 
 // Err Outputs error information to the logging destination
@@ -407,7 +409,7 @@ func (logger *Logger) Err(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeErr, logText, logger, outStreamStdErr, false)
+	logger.writeLog(colorString, resetString, modeErr, logText, outStreamStdErr, false)
 }
 
 // Fatal Outputs fatal information to the logging desination but does not cause a panic,
@@ -420,7 +422,7 @@ func (logger *Logger) Fatal(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modeFatal, logText, logger, outStreamStdErr, false)
+	logger.writeLog(colorString, resetString, modeFatal, logText, outStreamStdErr, false)
 }
 
 // Panic Outputs fatal information to the logging desination and causes a panic
@@ -432,12 +434,18 @@ func (logger *Logger) Panic(logText string) {
 		resetString = colorReset
 	}
 
-	writeLog(colorString, resetString, modePanic, logText, logger, outStreamStdErr, true)
+	logger.writeLog(colorString, resetString, modePanic, logText, outStreamStdErr, true)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
 func (logger *Logger) IsUninitialized() bool {
 	return logger.loggingMode == ""
+}
+
+// SetContext is called on the logger to the set its context. See 'Context' in the logging struct for more
+// information
+func (logger *Logger) SetContext(context string) {
+	logger.context = context
 }
 
 // SetupLoggerFromConfigFile sets up and returns a logger instance as specified in fullFilePath for profile
