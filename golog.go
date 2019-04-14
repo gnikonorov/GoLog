@@ -65,6 +65,9 @@ const (
 	outStreamStdOut = 11
 )
 
+// NOTE: I may or may not be thread safe
+var stringBuilder strings.Builder // Used to avoid costly string concatenation
+
 // LoggingConfig holds a logging configuration for the logger and is used during logger initialization
 type LoggingConfig struct {
 	Name                 string // The logger profile name
@@ -100,13 +103,27 @@ type Logger struct {
 func compressFile(filePath string) {
 	fileHandle, err := os.Open(filePath)
 	if err != nil {
-		panic("Could not stat file " + filePath + " because " + err.Error())
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Could not stat file '")
+		stringBuilder.WriteString(filePath)
+		stringBuilder.WriteString("' because: ")
+		stringBuilder.WriteString(err.Error())
+
+		panic(stringBuilder.String())
 	}
 	defer fileHandle.Close()
 
 	fileInfo, err := fileHandle.Stat()
 	if err != nil {
-		panic("Could not get file info for " + filePath + " because " + err.Error())
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Could not get file info for '")
+		stringBuilder.WriteString(filePath)
+		stringBuilder.WriteString("' because: ")
+		stringBuilder.WriteString(err.Error())
+
+		panic(stringBuilder.String())
 	}
 	var fileSize = fileInfo.Size()
 
@@ -115,7 +132,14 @@ func compressFile(filePath string) {
 	fileReader := bufio.NewReader(fileHandle)
 	_, err = fileReader.Read(fileBytes)
 	if err != nil {
-		panic("Could not get file bytes of " + filePath + " because " + err.Error())
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Could not get file bytes of '")
+		stringBuilder.WriteString(filePath)
+		stringBuilder.WriteString("' because: ")
+		stringBuilder.WriteString(err.Error())
+
+		panic(stringBuilder.String())
 	}
 
 	// write out .gz file, appending file last modified time to make a unique, identifiable name
@@ -127,15 +151,37 @@ func compressFile(filePath string) {
 	var fileModTime = fileInfo.ModTime()
 	var fileModTimeString = fileModTime.Format("20060102150405")
 
-	err = ioutil.WriteFile(filePath+"."+fileModTimeString+".gz", byteBuffer.Bytes(), fileInfo.Mode())
+	stringBuilder.Reset()
+
+	stringBuilder.WriteString(filePath)
+	stringBuilder.WriteString(".")
+	stringBuilder.WriteString(fileModTimeString)
+	stringBuilder.WriteString(".gz")
+
+	var gzipFileName = stringBuilder.String()
+	err = ioutil.WriteFile(gzipFileName, byteBuffer.Bytes(), fileInfo.Mode())
 	if err != nil {
-		panic("Could not create zip of " + filePath + " because " + err.Error())
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Could not create zip of '")
+		stringBuilder.WriteString(filePath)
+		stringBuilder.WriteString("' because: ")
+		stringBuilder.WriteString(err.Error())
+
+		panic(stringBuilder.String())
 	}
 
 	// delete source file
 	err = os.Remove(filePath)
 	if err != nil {
-		panic("Could not delete the log file because: " + err.Error() + ". Terminating.")
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Could not delete log file '")
+		stringBuilder.WriteString(filePath)
+		stringBuilder.WriteString("' because: ")
+		stringBuilder.WriteString(err.Error())
+
+		panic(stringBuilder.String())
 	}
 
 }
@@ -148,7 +194,14 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 		// if the file does not exist there's nothing to do
 		// if the error is anything else panic
 		if !os.IsNotExist(err) {
-			panic("Could not stat the log file because: " + err.Error() + ". Terminating.")
+			stringBuilder.Reset()
+
+			stringBuilder.WriteString("Could not stat log file '")
+			stringBuilder.WriteString(fullPathToLogFile)
+			stringBuilder.WriteString("' because: ")
+			stringBuilder.WriteString(err.Error())
+
+			panic(stringBuilder.String())
 		} else {
 			return false
 		}
@@ -178,20 +231,52 @@ func writeLog(colorString string, resetString string, loggingMode string, logTex
 	}
 
 	if logger.loggingMode == Both || logger.loggingMode == File {
-		var fileName = logger.loggingDirectory + "/" + logger.loggingFile
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString(logger.loggingDirectory)
+		stringBuilder.WriteString("/")
+		stringBuilder.WriteString(logger.loggingFile)
+
+		var fileName = stringBuilder.String()
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
 		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		defer logHandle.Close()
 		if err != nil {
 			// can't open file
-			panic("Unable to open log file " + fileName + " for writing because " + err.Error())
+			stringBuilder.Reset()
+
+			stringBuilder.WriteString("Unable to open log file '")
+			stringBuilder.WriteString(fileName)
+			stringBuilder.WriteString("' for writing because: ")
+			stringBuilder.WriteString(err.Error())
+
+			panic(stringBuilder.String())
 		}
 
-		var writeBytes = []byte(colorString + "[" + logTime + "] " + loggingMode + ": " + logText + resetString + "\n")
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString(colorString)
+		stringBuilder.WriteString("[")
+		stringBuilder.WriteString(logTime)
+		stringBuilder.WriteString("] ")
+		stringBuilder.WriteString(loggingMode)
+		stringBuilder.WriteString(": ")
+		stringBuilder.WriteString(logText)
+		stringBuilder.WriteString(resetString)
+		stringBuilder.WriteString("\n")
+
+		var writeBytes = []byte(stringBuilder.String())
 		_, err = logHandle.Write(writeBytes)
 		if err != nil {
-			panic("Unable to write to log file " + fileName + " because " + err.Error())
+			stringBuilder.Reset()
+
+			stringBuilder.WriteString("Unable to write to log file '")
+			stringBuilder.WriteString(fileName)
+			stringBuilder.WriteString("' because: ")
+			stringBuilder.WriteString(err.Error())
+
+			panic(stringBuilder.String())
 		}
 	}
 
@@ -203,7 +288,13 @@ func writeLog(colorString string, resetString string, loggingMode string, logTex
 // validate a loggers configuration as valid
 func validateLoggerConfig(logMode string, logDirectory string, logFile string, logFileStartupAction string) {
 	if logMode != File && logMode != Screen && logMode != Both {
-		panic("Log mode must either be File, Screen, or Both. Goodbye")
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Log mode must either be 'File', 'Screen', or 'Both'. Not '")
+		stringBuilder.WriteString(logMode)
+		stringBuilder.WriteString("'.")
+
+		panic(stringBuilder.String())
 	}
 
 	if logMode == File || logMode == Both {
@@ -212,20 +303,46 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 		if err != nil {
 			if os.IsNotExist(err) {
 				// The directory does not exist
-				panic("Please provide a valid log directory. Goodbye.")
+				stringBuilder.Reset()
+
+				stringBuilder.WriteString("Log directory '")
+				stringBuilder.WriteString(logDirectory)
+				stringBuilder.WriteString("' is not a valid log directory. Error.")
+
+				panic(stringBuilder.String())
 			} else {
-				panic("Could not stat the log directory because: " + err.Error() + ". Terminating.")
+				stringBuilder.Reset()
+
+				stringBuilder.WriteString("Could not stat log directory '")
+				stringBuilder.WriteString(logDirectory)
+				stringBuilder.WriteString("' because: '")
+				stringBuilder.WriteString(err.Error())
+				stringBuilder.WriteString("'")
+
+				panic(stringBuilder.String())
 			}
 		}
 
 		// Check to make sure we actually gave a directory
 		if !fileInfo.IsDir() {
-			panic("You must give a directory! Not a file!")
+			stringBuilder.Reset()
+
+			stringBuilder.WriteString("'")
+			stringBuilder.WriteString(logDirectory)
+			stringBuilder.WriteString("' is a file not a directory.")
+
+			panic(stringBuilder.String())
 		}
 
 		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
 		// note that file append is default behavior
-		var fullPathToLogFile = logDirectory + "/" + logFile
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString(logDirectory)
+		stringBuilder.WriteString("/")
+		stringBuilder.WriteString(logFile)
+
+		var fullPathToLogFile = stringBuilder.String()
 		var fileExists = doesLoggingFileExist(fullPathToLogFile)
 		if fileExists {
 			if logFileStartupAction == FileCompress {
@@ -235,7 +352,14 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 				// delete the file
 				err := os.Remove(fullPathToLogFile)
 				if err != nil {
-					panic("Could not delete the log file because: " + err.Error() + ". Terminating.")
+					stringBuilder.Reset()
+
+					stringBuilder.WriteString("Terminating. Could not delete log file '")
+					stringBuilder.WriteString(fullPathToLogFile)
+					stringBuilder.WriteString("' because: ")
+					stringBuilder.WriteString(err.Error())
+
+					panic(stringBuilder.String())
 				}
 			}
 		}
@@ -322,19 +446,33 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
 	fileBytes, err := ioutil.ReadFile(fullFilePath)
 	if err != nil {
 		// don't tolerate any error while reading file
-		panic("Could not read file because: " + err.Error() + "!")
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Could not read file '")
+		stringBuilder.WriteString(fullFilePath)
+		stringBuilder.WriteString("' because: ")
+		stringBuilder.WriteString(err.Error())
+
+		panic(stringBuilder.String())
 	}
 
 	// parse out our json
 	loggingConfigs := make([]LoggingConfig, 0)
 	err = json.Unmarshal(fileBytes, &loggingConfigs)
 	if err != nil {
-		panic("Failed to decode config file because: " + err.Error() + ". Ensure it is in JSON format.")
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString("Failed to decode config file because: '")
+		stringBuilder.WriteString(err.Error())
+		stringBuilder.WriteString("'. Ensure it is in a valid JSON format.")
+
+		panic(stringBuilder.String())
 	}
 
 	for _, config := range loggingConfigs {
+		// TODO: Change to string builder
 		fmt.Printf("The object is %+v\n", config)
-		fmt.Printf("Configname is " + config.Name + "\n")
+		fmt.Printf("Configname is %s\n", config.Name)
 		if config.Name == profile {
 			validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
 
@@ -344,7 +482,15 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
 	}
 
 	// if we get here we couldn't find any config for the profile
-	panic("Configuration profile " + profile + " not found in config file " + fullFilePath + "!")
+	stringBuilder.Reset()
+
+	stringBuilder.WriteString("Configure profile '")
+	stringBuilder.WriteString(profile)
+	stringBuilder.WriteString("' not found in config file '")
+	stringBuilder.WriteString(fullFilePath)
+	stringBuilder.WriteString("'.")
+
+	panic(stringBuilder.String())
 }
 
 // SetupLoggerFromStruct sets up and returns a logger instance from a LoggingConfigStruct
