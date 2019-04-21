@@ -300,10 +300,26 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 	}
 
 	if logMode == File || logMode == Both {
-		// We're logging to a file, make sure that the directory given to us was valid
-		fileInfo, err := os.Stat(logDirectory)
-		if err != nil {
-			if os.IsNotExist(err) {
+		// We're logging to a file, make sure that the directory given to us was valid.
+		// Also try and create it for the user if it does not exist. MkdirAll is a no-op if the directory already
+		// exists so no harm no foul
+		mkdirErr := os.MkdirAll(logDirectory, os.ModePerm)
+		if mkdirErr != nil {
+			stringBuilder.Reset()
+
+			stringBuilder.WriteString("Log directory '")
+			stringBuilder.WriteString(logDirectory)
+			stringBuilder.WriteString("' did not exist. Creation of directory failed because: '")
+			stringBuilder.WriteString(mkdirErr.Error())
+			stringBuilder.WriteString("'")
+
+			panic(stringBuilder.String())
+		}
+
+		// Errors here are extremely unlikely, but not harm in checking for them
+		fileInfo, statErr := os.Stat(logDirectory)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
 				// The directory does not exist
 				stringBuilder.Reset()
 
@@ -318,7 +334,7 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 				stringBuilder.WriteString("Could not stat log directory '")
 				stringBuilder.WriteString(logDirectory)
 				stringBuilder.WriteString("' because: '")
-				stringBuilder.WriteString(err.Error())
+				stringBuilder.WriteString(statErr.Error())
 				stringBuilder.WriteString("'")
 
 				panic(stringBuilder.String())
