@@ -1,6 +1,6 @@
-# GoLog
+# golog
 
-GoLog is a logger for the Go programming language, written in Go. It aims to be easy to use, and provides basic
+`golog` is a logger for the Go programming language, written in Go. It aims to be easy to use, and provides basic
 logging functionality for the Go programmer.
 
 ## Logging Levels
