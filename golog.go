@@ -20,14 +20,6 @@ import (
 )
 
 const (
-	// Logging modes for the logger
-	modeDebug = "DEBUG"   // This mode should be used debug information
-	modeErr   = "ERROR"   // A recoverable error
-	modeFatal = "FATAL"   // Non-recoverable error.
-	modeInfo  = "INFO"    // Non severe log information. Should be used for things like user input
-	modePanic = "PANIC"	  // Akin to an exception. Logs and throws a panic
-	modeWarn  = "WARNING" // Indicator of potential problems
-
 	// Below are logging output modes
 
 	// File indicates information will be outputted to a log file
@@ -219,11 +211,12 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 
 // writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
 // it will also raise a panic with the user provided log text
-func (logger *Logger) writeLog(colorString string, resetString string, loggingMode string, logText string, outputStream int, shouldPanic bool) {
-	var logTime = time.Now().String()
+func (logger *Logger) writeLog(colorString string, resetString string, loggingLevel LoggingLevel, logText string, outputStream int, shouldPanic bool) {
+	var logTime          = time.Now().String()
+	var loggingLevelText = loggingLevel.String()
 
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		logStrings := []string{colorString, "[", logTime, "] ", loggingMode, ": ", logger.context, logText, resetString, "\n"}
+		logStrings := []string{colorString, "[", logTime, "] ", loggingLevelText, ": ", logger.context, logText, resetString, "\n"}
 		var logString = strings.Join(logStrings, "")
 		if outputStream == outStreamStdErr {
 			os.Stderr.WriteString(logString)
@@ -262,7 +255,7 @@ func (logger *Logger) writeLog(colorString string, resetString string, loggingMo
 		stringBuilder.WriteString("[")
 		stringBuilder.WriteString(logTime)
 		stringBuilder.WriteString("] ")
-		stringBuilder.WriteString(loggingMode)
+		stringBuilder.WriteString(loggingLevelText)
 		stringBuilder.WriteString(": ")
 		stringBuilder.WriteString(logger.context)
 		stringBuilder.WriteString(logText)
@@ -398,7 +391,7 @@ func (logger *Logger) Debug(logText string) {
 		resetString = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, modeDebug, logText, outStreamStdOut, false)
+	logger.writeLog(colorString, resetString, levelDebug, logText, outStreamStdOut, false)
 }
 
 // Info Outputs info log information to the logging destination
@@ -406,7 +399,7 @@ func (logger *Logger) Info(logText string) {
 	var colorString = ""
 	var resetString = ""
 
-	logger.writeLog(colorString, resetString, modeInfo, logText, outStreamStdOut, false)
+	logger.writeLog(colorString, resetString, levelInfo, logText, outStreamStdOut, false)
 }
 
 // Warning Outputs warning information to the logging destination
@@ -418,7 +411,7 @@ func (logger *Logger) Warning(logText string) {
 		resetString = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, modeWarn, logText, outStreamStdErr, false)
+	logger.writeLog(colorString, resetString, levelWarn, logText, outStreamStdErr, false)
 }
 
 // Err Outputs error information to the logging destination
@@ -430,7 +423,7 @@ func (logger *Logger) Err(logText string) {
 		resetString = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, modeErr, logText, outStreamStdErr, false)
+	logger.writeLog(colorString, resetString, levelErr, logText, outStreamStdErr, false)
 }
 
 // Fatal Outputs fatal information to the logging desination but does not cause a panic,
@@ -443,7 +436,7 @@ func (logger *Logger) Fatal(logText string) {
 		resetString = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, modeFatal, logText, outStreamStdErr, false)
+	logger.writeLog(colorString, resetString, levelFatal, logText, outStreamStdErr, false)
 }
 
 // Panic Outputs fatal information to the logging desination and causes a panic
@@ -455,7 +448,7 @@ func (logger *Logger) Panic(logText string) {
 		resetString = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, modePanic, logText, outStreamStdErr, true)
+	logger.writeLog(colorString, resetString, levelPanic, logText, outStreamStdErr, true)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
