@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -287,8 +288,10 @@ func (logger *Logger) writeLog(colorString string, resetString string, loggingMo
 	}
 }
 
-// validate a loggers configuration as valid
-func validateLoggerConfig(logMode string, logDirectory string, logFile string, logFileStartupAction string) {
+// func validateLoggerConfig validate a loggers configuration as valid. If a configuration is invalid,
+// an error is returned. Else, nil is returned
+// TODO: Validate that passed log file action is a valid file action
+func validateLoggerConfig(logMode string, logDirectory string, logFile string, logFileStartupAction string) error {
 	if logMode != File && logMode != Screen && logMode != Both {
 		stringBuilder.Reset()
 
@@ -296,7 +299,7 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 		stringBuilder.WriteString(logMode)
 		stringBuilder.WriteString("'.")
 
-		panic(stringBuilder.String())
+		return errors.New(stringBuilder.String())
 	}
 
 	if logMode == File || logMode == Both {
@@ -313,7 +316,7 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 			stringBuilder.WriteString(mkdirErr.Error())
 			stringBuilder.WriteString("'")
 
-			panic(stringBuilder.String())
+			return errors.New(stringBuilder.String())
 		}
 
 		// Errors here are extremely unlikely, but not harm in checking for them
@@ -327,7 +330,7 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 				stringBuilder.WriteString(logDirectory)
 				stringBuilder.WriteString("' is not a valid log directory. Error.")
 
-				panic(stringBuilder.String())
+				return errors.New(stringBuilder.String())
 			} else {
 				stringBuilder.Reset()
 
@@ -337,7 +340,7 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 				stringBuilder.WriteString(statErr.Error())
 				stringBuilder.WriteString("'")
 
-				panic(stringBuilder.String())
+				return errors.New(stringBuilder.String())
 			}
 		}
 
@@ -349,7 +352,7 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 			stringBuilder.WriteString(logDirectory)
 			stringBuilder.WriteString("' is a file not a directory.")
 
-			panic(stringBuilder.String())
+			return errors.New(stringBuilder.String())
 		}
 
 		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
@@ -377,11 +380,13 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 					stringBuilder.WriteString("' because: ")
 					stringBuilder.WriteString(err.Error())
 
-					panic(stringBuilder.String())
+					return errors.New(stringBuilder.String())
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 // Debug Outputs debug log information to the logging destination
@@ -465,7 +470,10 @@ func (logger *Logger) SetContext(context string) {
 }
 
 // SetupLoggerFromConfigFile sets up and returns a logger instance as specified in fullFilePath for profile
-func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
+func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, error) {
+	var returnError error
+	var logger      Logger
+
 	// get bytes of file
 	fileBytes, err := ioutil.ReadFile(fullFilePath)
 	if err != nil {
@@ -477,7 +485,8 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
 		stringBuilder.WriteString("' because: ")
 		stringBuilder.WriteString(err.Error())
 
-		panic(stringBuilder.String())
+		returnError = errors.New(stringBuilder.String())
+		return logger, returnError
 	}
 
 	// parse out our json
@@ -490,7 +499,8 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
 		stringBuilder.WriteString(err.Error())
 		stringBuilder.WriteString("'. Ensure it is in a valid JSON format.")
 
-		panic(stringBuilder.String())
+		returnError = errors.New(stringBuilder.String())
+		return logger, returnError
 	}
 
 	for _, config := range loggingConfigs {
@@ -498,10 +508,13 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
 		fmt.Printf("The object is %+v\n", config)
 		fmt.Printf("Configname is %s\n", config.Name)
 		if config.Name == profile {
-			validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+			returnError = validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+			if returnError != nil {
+				return logger, returnError
+			}
 
-			logger := Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
-			return logger
+			logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
+			return logger, nil
 		}
 	}
 
@@ -514,21 +527,32 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) Logger {
 	stringBuilder.WriteString(fullFilePath)
 	stringBuilder.WriteString("'.")
 
-	panic(stringBuilder.String())
+	returnError = errors.New(stringBuilder.String())
+	return logger, returnError
 }
 
 // SetupLoggerFromStruct sets up and returns a logger instance from a LoggingConfigStruct
-func SetupLoggerFromStruct(config *LoggingConfig) Logger {
-	validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+func SetupLoggerFromStruct(config *LoggingConfig) (Logger, error) {
+	var logger Logger
 
-	logger := Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
-	return logger
+	returnError := validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+	if returnError != nil {
+		return logger, returnError
+	}
+
+	logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
+	return logger, nil
 }
 
 // SetupLoggerFromFields Sets up and returns a logger instance from passed in individual fields
-func SetupLoggerFromFields(logMode string, logFileStartupAction string, logDirectory string, logFile string, shouldColorize bool) Logger {
-	validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction)
+func SetupLoggerFromFields(logMode string, logFileStartupAction string, logDirectory string, logFile string, shouldColorize bool) (Logger, error) {
+	var logger Logger
 
-	logger := Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize}
-	return logger
+	returnError := validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction)
+	if returnError != nil {
+		return logger, returnError
+	}
+
+	logger = Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize}
+	return logger, nil
 }
