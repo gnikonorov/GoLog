@@ -20,17 +20,6 @@ import (
 )
 
 const (
-	// Below are logging output modes
-
-	// File indicates information will be outputted to a log file
-	File = "FILE"
-
-	// Screen indicates information will be outputted to the screen
-	Screen = "SCREEN"
-
-	// Both indicates information will be outted to both file and screen
-	Both = "BOTH"
-
 	// Below are init log file options
 
 	// FileAppend instructs the logger to append onto an existing log if one exists
@@ -54,12 +43,12 @@ var stringBuilder strings.Builder // Used to avoid costly string concatenation
 
 // LoggingConfig holds a logging configuration for the logger and is used during logger initialization
 type LoggingConfig struct {
-	Name                 string // The logger profile name
-	LogMode              string // The logging mode
-	LogFileStartupAction string // The action the logger will take on startuip
-	LogDirectory         string // The directory to which the logger writes
-	LogFile              string // The name of the log file to write to
-	ShouldColorize       bool   // Indicates if we should output information in color
+	Name                 string            // The logger profile name
+	LogMode              LoggingOutputMode // The logging mode
+	LogFileStartupAction string            // The action the logger will take on startuip
+	LogDirectory         string            // The directory to which the logger writes
+	LogFile              string            // The name of the log file to write to
+	ShouldColorize       bool              // Indicates if we should output information in color
 }
 
 // Logger is representative of the logger for use in other go programs
@@ -77,11 +66,11 @@ type LoggingConfig struct {
 //	Fatal(logText string): Log fatal output to log destination
 //	Is_Uninitialized: Returns true if this structure has not been allocated
 type Logger struct {
-	colorize         bool   // If true, print log output in color
-	context          string // The context is the value prepended to each log line and set by the caller via 'SetContext'
-	loggingDirectory string // The directory to store logs in
-	loggingFile      string // The file to store logs in
-	loggingMode      string // The mode of the logger (Should be FILE, SCREEN, or BOTH)
+	colorize         bool               // If true, print log output in color
+	context          string            // The context is the value prepended to each log line and set by the caller via 'SetContext'
+	loggingDirectory string            // The directory to store logs in
+	loggingFile      string            // The file to store logs in
+	loggingMode      LoggingOutputMode // The mode of the logger (Should be FILE, SCREEN, or BOTH - see logging_output_modes.go )
 }
 
 // Compress file validatedFilePath
@@ -208,7 +197,7 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 	var paintString      = paintColor.String()
 	var resetString      = resetColor.String()
 
-	if logger.loggingMode == Screen || logger.loggingMode == Both {
+	if logger.loggingMode == ModeScreen || logger.loggingMode == ModeBoth {
 		logStrings := []string{paintString, "[", logTime, "] ", loggingLevelText, ": ", logger.context, logText, resetString, "\n"}
 		var logString = strings.Join(logStrings, "")
 		if outputStream == outStreamStdErr {
@@ -218,7 +207,7 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 		}
 	}
 
-	if logger.loggingMode == Both || logger.loggingMode == File {
+	if logger.loggingMode == ModeBoth || logger.loggingMode == ModeFile {
 		stringBuilder.Reset()
 
 		stringBuilder.WriteString(logger.loggingDirectory)
@@ -277,18 +266,24 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 // func validateLoggerConfig validate a loggers configuration as valid. If a configuration is invalid,
 // an error is returned. Else, nil is returned
 // TODO: Validate that passed log file action is a valid file action
-func validateLoggerConfig(logMode string, logDirectory string, logFile string, logFileStartupAction string) error {
-	if logMode != File && logMode != Screen && logMode != Both {
+func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction string) error {
+	if logMode != ModeFile && logMode != ModeScreen && logMode != ModeBoth {
 		stringBuilder.Reset()
 
-		stringBuilder.WriteString("Log mode must either be 'File', 'Screen', or 'Both'. Not '")
-		stringBuilder.WriteString(logMode)
+		stringBuilder.WriteString("Log mode must either be '")
+		stringBuilder.WriteString(ModeFile.String())
+		stringBuilder.WriteString("', '")
+		stringBuilder.WriteString(ModeScreen.String())
+		stringBuilder.WriteString("', or '")
+		stringBuilder.WriteString(ModeBoth.String())
+		stringBuilder.WriteString("'. Not '")
+		stringBuilder.WriteString(logMode.String())
 		stringBuilder.WriteString("'.")
 
 		return errors.New(stringBuilder.String())
 	}
 
-	if logMode == File || logMode == Both {
+	if logMode == ModeFile || logMode == ModeBoth {
 		// We're logging to a file, make sure that the directory given to us was valid.
 		// Also try and create it for the user if it does not exist. MkdirAll is a no-op if the directory already
 		// exists so no harm no foul
@@ -446,7 +441,7 @@ func (logger *Logger) Panic(logText string) {
 
 // IsUninitialized Returns true if this structure has not yet been allocated
 func (logger *Logger) IsUninitialized() bool {
-	return logger.loggingMode == ""
+	return logger.loggingMode == 0
 }
 
 // SetContext is called on the logger to the set its context. See 'Context' in the logging struct for more
@@ -477,6 +472,7 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, err
 
 	// parse out our json
 	loggingConfigs := make([]LoggingConfig, 0)
+	// NOTE: This should all be retested after refactors and type renames
 	err = json.Unmarshal(fileBytes, &loggingConfigs)
 	if err != nil {
 		stringBuilder.Reset()
@@ -531,7 +527,7 @@ func SetupLoggerFromStruct(config *LoggingConfig) (Logger, error) {
 }
 
 // SetupLoggerFromFields Sets up and returns a logger instance from passed in individual fields
-func SetupLoggerFromFields(logMode string, logFileStartupAction string, logDirectory string, logFile string, shouldColorize bool) (Logger, error) {
+func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction string, logDirectory string, logFile string, shouldColorize bool) (Logger, error) {
 	var logger Logger
 
 	returnError := validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction)
