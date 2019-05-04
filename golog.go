@@ -45,15 +45,6 @@ const (
 	// FileActionNone indicates no file actions ( e.g.: when user is writing to screen only
 	FileActionNone = "NONE"
 
-	// These are constants for terminal colors
-	// Info is left in the native terminal color
-	colorDebug = "\x1B[32m"      // This is green
-	colorErr   = "\x1B[31m"      // This is red
-	colorFatal = "\x1B[0;37;41m" // This is white text on a red background
-	colorPanic = "\x1B[0;37;41m" // This is white text on a red background
-	colorReset = "\x1B[0m"       // resets an applied terminal color
-	colorWarn  = "\x1B[33m"      // This is yellow
-
 	outStreamStdErr = 10
 	outStreamStdOut = 11
 )
@@ -211,12 +202,14 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 
 // writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
 // it will also raise a panic with the user provided log text
-func (logger *Logger) writeLog(colorString string, resetString string, loggingLevel LoggingLevel, logText string, outputStream int, shouldPanic bool) {
+func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor, loggingLevel LoggingLevel, logText string, outputStream int, shouldPanic bool) {
 	var logTime          = time.Now().String()
 	var loggingLevelText = loggingLevel.String()
+	var paintString      = paintColor.String()
+	var resetString      = resetColor.String()
 
 	if logger.loggingMode == Screen || logger.loggingMode == Both {
-		logStrings := []string{colorString, "[", logTime, "] ", loggingLevelText, ": ", logger.context, logText, resetString, "\n"}
+		logStrings := []string{paintString, "[", logTime, "] ", loggingLevelText, ": ", logger.context, logText, resetString, "\n"}
 		var logString = strings.Join(logStrings, "")
 		if outputStream == outStreamStdErr {
 			os.Stderr.WriteString(logString)
@@ -251,7 +244,7 @@ func (logger *Logger) writeLog(colorString string, resetString string, loggingLe
 
 		stringBuilder.Reset()
 
-		stringBuilder.WriteString(colorString)
+		stringBuilder.WriteString(paintString)
 		stringBuilder.WriteString("[")
 		stringBuilder.WriteString(logTime)
 		stringBuilder.WriteString("] ")
@@ -384,71 +377,71 @@ func validateLoggerConfig(logMode string, logDirectory string, logFile string, l
 
 // Debug Outputs debug log information to the logging destination
 func (logger *Logger) Debug(logText string) {
-	var colorString = ""
-	var resetString = ""
+	var paintColor = colorNone
+	var resetColor = colorNone
 	if logger.colorize {
-		colorString = colorDebug
-		resetString = colorReset
+		paintColor = colorDebug
+		resetColor = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, levelDebug, logText, outStreamStdOut, false)
+	logger.writeLog(paintColor, resetColor, levelDebug, logText, outStreamStdOut, false)
 }
 
 // Info Outputs info log information to the logging destination
 func (logger *Logger) Info(logText string) {
-	var colorString = ""
-	var resetString = ""
+	var paintColor = colorNone
+	var resetColor = colorNone
 
-	logger.writeLog(colorString, resetString, levelInfo, logText, outStreamStdOut, false)
+	logger.writeLog(paintColor, resetColor, levelInfo, logText, outStreamStdOut, false)
 }
 
 // Warning Outputs warning information to the logging destination
 func (logger *Logger) Warning(logText string) {
-	var colorString = ""
-	var resetString = ""
+	var paintColor = colorNone
+	var resetColor = colorNone
 	if logger.colorize {
-		colorString = colorWarn
-		resetString = colorReset
+		paintColor = colorWarn
+		resetColor = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, levelWarn, logText, outStreamStdErr, false)
+	logger.writeLog(paintColor, resetColor, levelWarn, logText, outStreamStdErr, false)
 }
 
 // Err Outputs error information to the logging destination
 func (logger *Logger) Err(logText string) {
-	var colorString = ""
-	var resetString = ""
+	var paintColor = colorNone
+	var resetColor = colorNone
 	if logger.colorize {
-		colorString = colorErr
-		resetString = colorReset
+		paintColor = colorErr
+		resetColor = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, levelErr, logText, outStreamStdErr, false)
+	logger.writeLog(paintColor, resetColor, levelErr, logText, outStreamStdErr, false)
 }
 
 // Fatal Outputs fatal information to the logging desination but does not cause a panic,
 // use 'Panic' instead.
 func (logger *Logger) Fatal(logText string) {
-	var colorString = ""
-	var resetString = ""
+	var paintColor = colorNone
+	var resetColor = colorNone
 	if logger.colorize {
-		colorString = colorFatal
-		resetString = colorReset
+		paintColor = colorFatal
+		resetColor = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, levelFatal, logText, outStreamStdErr, false)
+	logger.writeLog(paintColor, resetColor, levelFatal, logText, outStreamStdErr, false)
 }
 
 // Panic Outputs fatal information to the logging desination and causes a panic
 func (logger *Logger) Panic(logText string) {
-	var colorString = ""
-	var resetString = ""
+	var paintColor = colorNone
+	var resetColor = colorNone
 	if logger.colorize {
-		colorString = colorPanic
-		resetString = colorReset
+		paintColor = colorPanic
+		resetColor = colorReset
 	}
 
-	logger.writeLog(colorString, resetString, levelPanic, logText, outStreamStdErr, true)
+	logger.writeLog(paintColor, resetColor, levelPanic, logText, outStreamStdErr, true)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated

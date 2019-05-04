@@ -3,10 +3,10 @@
 */
 package golog
 
+// Logging levels for the logger
 type LoggingLevel string
 
 const (
-	// Logging levels for the logger
 	levelDebug LoggingLevel = "DEBUG"   // This level should be used debug information
 	levelErr   LoggingLevel = "ERROR"   // A recoverable error
 	levelFatal LoggingLevel = "FATAL"   // Non-recoverable error.
