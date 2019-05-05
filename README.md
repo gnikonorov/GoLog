@@ -1,7 +1,6 @@
 # golog
 
-`golog` is a logger for the Go programming language, written in Go. It aims to be easy to use, and provides basic
-logging functionality for the Go programmer.
+`golog` is a logger for the Go programming language.
 
 ## Logging Levels
 
@@ -17,35 +16,42 @@ The logging levels shown below are provided by this logger, and are colorized if
 
 ## Logging Modes
 
-The logger may be set up to run in the three modes listed below:
+The logger may be set up to run in the three modes listed below. These modes are defined in `logging_output_modes.go`:
 
-+ `Screen` - Output logs to `STDOUT`
-+ `File`   - Output logs to a user provided file
-+ `Both`   - Output logs to both `STDOUT` and a user provided file
++ `ModeScreen` - Output logs to `STDOUT`
++ `ModeFile`   - Output logs to a user provided file
++ `ModeBoth`   - Output logs to both `STDOUT` and a user provided file
 
 ## Startup Actions
 
-Upon initialization of the logger, the user may specify what to do with an existing log file if the user has specified 
-`Screen` or `Both` as their logging mode.
+Upon initialization of the logger, the user may specify what to do with an existing log file if the user has specified `ModeFile` or `ModeBoth` as their logging mode.
 
-The following actions may be taken:
+The following actions may be taken. These actions are defined in `logging_file_actions.go`:
 
-+ `FileAppend`   - If the log file to which the user is writing already exists, add new logs onto it
-+ `FileCompress` - If the log file to which the user is writing already exists, compress it into a `.gz` file
-+ `FileDelete`   - If the log file to which the user is writing already exists, delete it
++ `FileActionAppend`   - If the log file to which the user is writing already exists, add new logs onto it
++ `FileActionCompress` - If the log file to which the user is writing already exists, compress it into a `.gz` file
++ `FileActionDelete`   - If the log file to which the user is writing already exists, delete it
 
 The user may also specify `FileActionNone`. For now, this is logically equivalent to passing in `FileAppend`. 
 
 ## Initialization
 
-The logger is a struct initialized by calling `SetupLoggerWithFilename`.
-The following arguments are passed in during initialization:
+The logger is a structure that may be initialized by the functions defined below
 
-+ `logMode (int)` - The mode the logger will operate in, as described in `Logging Modes`
-+ `logFileStartupAction (int)` - Startup action taken by the logger as described in section `Startup Actions`
+### Raw Initializaion
+
+The following arguments are passed in during initialization by calling `SetupLoggerFromFields`:
+
++ `logMode (LoggingOutputMode)` - The mode the logger will operate in, as described in `Logging Modes`
++ `logFileStartupAction (LoggingFileAction)` - Startup action taken by the logger as described in section `Startup Actions`
 + `logDirectory (string)` - If `logMode` is `Both` or `File`, this is the directory to which the logger will write logs.
 + `logFile (string)` - If the `logMode` is `Both` or `File`, this is the file to which the logger will write logs.
 + `shouldColorize (bool)` - If set to `true` logging will be colorized as described in section `Logging Modes`.
+
+For example:
+```
+logger := golog.SetupLoggerFromFields(golog.Both, golog.FileActionNone, "/path/to/log/file", "file.log", true)
+```
 
 ### Initialization From Struct
 
@@ -55,47 +61,47 @@ The definition for the struct is shown below:
 
 ```
 type LoggingConfig struct {
-	Name                 string // The logger profile name
-	LogMode              string // The logging mode
-	LogFileStartupAction string // The action the logger will take on startup
-	LogDirectory         string // The directory to which the logger writes
-	LogFile              string // The name of the log file to write to
-	ShouldColorize       bool   // Indicates if we should output information in color
+	Name                 string            // The logger profile name
+	LogMode              LoggingOutputMode // The logging mode
+	LogFileStartupAction LoggingFileAction // The action the logger will take on startup
+	LogDirectory         string            // The directory to which the logger writes
+	LogFile              string            // The name of the log file to write to
+	ShouldColorize       bool              // Indicates if we should output information in color
 }
 ```
 A sample initialization would thus be as follows:
 
 ```
-config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/home/gnikonorov/projects/go/src/tester", LogFile: "test.log", ShouldColorize: true}
+config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/dir/to/my/go/project", LogFile: "important.log", ShouldColorize: true}
 logger := golog.SetupLoggerFromStruct(&config)
 ```
 ### Initialization From JSON File
 
-The logger may be initialized by specifying the path to a `JSON` file that contains its definition to `SetupLoggerFromConfigFile` along with the configuration profile name `name`. The `name` is simply what you have chosen to name a current configuration.
+The logger may be initialized by specifying the path to a `JSON` file that contains its definition to `SetupLoggerFromConfigFile` along with the configuration profile name `name`. The `name` is what you have chosen to name a current configuration.
 
 A sample configuration file containing 3 profiles is shown below. Note how each entry has a configuration name `name`.
 
 ```
 [{
 	"name": "test1",
-	"logMode": "FILE",
-	"logFileStartupAction": "NONE",
-	"logDirectory": "/home/gnikonorov/projects/go/src/tester",
+	"logMode": 1,                            // ModeFile
+	"logFileStartupAction": 1,               // FileActionAppend
+	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test1.log",
 	"shouldColorize": true
 
 }, {
 	"name": "test2",
-	"logMode": "SCREEN",
-	"logFileStartupAction": "APPEND",
-	"logDirectory": "/home/user/gnikonorov/logs",
+	"logMode": 2,                            // ModeScreen 
+	"logFileStartupAction": 2,               // FileActionCompress
+	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test2.log",
 	"shouldColorize": true
 }, {
 	"name": "test3",
-	"logMode": "BOTH",
-	"logFileStartupAction": "COMPRESS",
-	"logDirectory": "/home/gnikonorov/projects/go/src/tester/logs",
+	"logMode": 3,                            // ModeBoth
+	"logFileStartupAction": 3,               // FileActionDelete
+	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test3.log",
 	"shouldColorize": true
 }]
@@ -105,14 +111,6 @@ If we wanted to initialize a logger to have the profile of `test1`, we would do 
 
 ```
 var profile = "test1"
-var configFile = "/home/gnikonorov/.golog/conf.json"
+var configFile = "/path/to/my/config/config.json"
 logger := golog.SetupLoggerFromConfigFile(configFile, profile)
-```
-
-### Initialization From Raw Parameters
-
-It is also possible to initialize the logger by passing in raw parameters. For example:
-
-```
-logger := golog.SetupLoggerFromFields(golog.Both, golog.FileActionNone, "/home/gnikonorov/projects/go/src/tester", "test.log", true)
 ```
