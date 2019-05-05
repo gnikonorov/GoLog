@@ -20,20 +20,6 @@ import (
 )
 
 const (
-	// Below are init log file options
-
-	// FileAppend instructs the logger to append onto an existing log if one exists
-	FileAppend = "APPEND"
-
-	// FileCompress instructs the logger to compress an existing log file if one exists
-	FileCompress = "COMPRESS"
-
-	// FileDelete instructs the logger to remove an existing log file if one exits
-	FileDelete = "DELETE"
-
-	// FileActionNone indicates no file actions ( e.g.: when user is writing to screen only
-	FileActionNone = "NONE"
-
 	outStreamStdErr = 10
 	outStreamStdOut = 11
 )
@@ -45,7 +31,7 @@ var stringBuilder strings.Builder // Used to avoid costly string concatenation
 type LoggingConfig struct {
 	Name                 string            // The logger profile name
 	LogMode              LoggingOutputMode // The logging mode
-	LogFileStartupAction string            // The action the logger will take on startuip
+	LogFileStartupAction LoggingFileAction // The action the logger will take on startup
 	LogDirectory         string            // The directory to which the logger writes
 	LogFile              string            // The name of the log file to write to
 	ShouldColorize       bool              // Indicates if we should output information in color
@@ -266,7 +252,7 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 // func validateLoggerConfig validate a loggers configuration as valid. If a configuration is invalid,
 // an error is returned. Else, nil is returned
 // TODO: Validate that passed log file action is a valid file action
-func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction string) error {
+func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
 	if logMode != ModeFile && logMode != ModeScreen && logMode != ModeBoth {
 		stringBuilder.Reset()
 
@@ -347,10 +333,10 @@ func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFil
 		var fullPathToLogFile = stringBuilder.String()
 		var fileExists = doesLoggingFileExist(fullPathToLogFile)
 		if fileExists {
-			if logFileStartupAction == FileCompress {
+			if logFileStartupAction == FileActionCompress {
 				// compress the file
 				compressFile(fullPathToLogFile)
-			} else if logFileStartupAction == FileDelete {
+			} else if logFileStartupAction == FileActionDelete {
 				// delete the file
 				err := os.Remove(fullPathToLogFile)
 				if err != nil {
@@ -527,7 +513,7 @@ func SetupLoggerFromStruct(config *LoggingConfig) (Logger, error) {
 }
 
 // SetupLoggerFromFields Sets up and returns a logger instance from passed in individual fields
-func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction string, logDirectory string, logFile string, shouldColorize bool) (Logger, error) {
+func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction LoggingFileAction, logDirectory string, logFile string, shouldColorize bool) (Logger, error) {
 	var logger Logger
 
 	returnError := validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction)
