@@ -15,6 +15,12 @@ const (
 	ModeBoth                                // ModeBoth indicates information will be outted to both file and screen
 )
 
+func (mode LoggingOutputMode) IsValidMode() bool {
+	return (mode == ModeFile   ||
+	        mode == ModeScreen ||
+	        mode == ModeBoth)
+}
+
 func (mode LoggingOutputMode) Int() int {
 	return int(mode)
 }

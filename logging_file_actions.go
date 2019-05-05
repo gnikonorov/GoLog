@@ -11,3 +11,10 @@ const (
 	FileActionDelete                                // Instructs the logger to remove an existing log file if one exits
 	FileActionNone                                  // Indicates no file actions ( e.g.: when user is writing to screen only )
 )
+
+func (fileAction LoggingFileAction) IsValidFileAction() bool {
+	return (fileAction == FileActionAppend   ||
+	        fileAction == FileActionCompress ||
+	        fileAction == FileActionDelete   ||
+	        fileAction == FileActionNone)
+}

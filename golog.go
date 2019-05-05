@@ -253,20 +253,12 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 // an error is returned. Else, nil is returned
 // TODO: Validate that passed log file action is a valid file action
 func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
-	if logMode != ModeFile && logMode != ModeScreen && logMode != ModeBoth {
-		stringBuilder.Reset()
+	if !logMode.IsValidMode() {
+		return errors.New("Invalid log mode provided. See log modes in 'logging_output_modes.go'")
+	}
 
-		stringBuilder.WriteString("Log mode must either be '")
-		stringBuilder.WriteString(ModeFile.String())
-		stringBuilder.WriteString("', '")
-		stringBuilder.WriteString(ModeScreen.String())
-		stringBuilder.WriteString("', or '")
-		stringBuilder.WriteString(ModeBoth.String())
-		stringBuilder.WriteString("'. Not '")
-		stringBuilder.WriteString(logMode.String())
-		stringBuilder.WriteString("'.")
-
-		return errors.New(stringBuilder.String())
+	if !logFileStartupAction.IsValidFileAction() {
+		return errors.New("Invalid log file startup action provided. See actions in 'logging_file_actions.go'")
 	}
 
 	if logMode == ModeFile || logMode == ModeBoth {
