@@ -10,9 +10,10 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/spf13/afero"
 )
 
 // Logger is representative of the logger for use in other go programs
@@ -35,6 +36,7 @@ type Logger struct {
 	loggingDirectory string            // The directory to store logs in
 	loggingFile      string            // The file to store logs in
 	loggingMode      LoggingOutputMode // The mode of the logger ( see 'logging_output_modes.go' )
+	OsHandle         afero.Fs          // We are using afero to enable mocking and stubbing the native FS during tests.
 }
 
 // LoggingConfig holds a logging configuration for the logger and is used during logger initialization
@@ -45,11 +47,12 @@ type LoggingConfig struct {
 	LogDirectory         string            // The directory to which the logger writes
 	LogFile              string            // The name of the log file to write to
 	ShouldColorize       bool              // Indicates if we should output information in color
+	IsMock               bool              // If true, mock the filesystem via 'afero'
 }
 
 // func compressFile compresses the file pointed to by 'filePath'
-func compressFile(filePath string) {
-	fileHandle, err := os.Open(filePath)
+func compressFile(filePath string, osPtr afero.Fs) {
+	fileHandle, err := osPtr.Open(filePath)
 	if err != nil {
 		stringBuilder.Reset()
 
@@ -120,7 +123,7 @@ func compressFile(filePath string) {
 	}
 
 	// delete source file
-	err = os.Remove(filePath)
+	err = osPtr.Remove(filePath)
 	if err != nil {
 		stringBuilder.Reset()
 
@@ -135,9 +138,9 @@ func compressFile(filePath string) {
 }
 
 // func doesLoggingFileExist checks to make sure that file 'fullPathToLogFile' exists and returns assertion of its existance
-func doesLoggingFileExist(fullPathToLogFile string) bool {
+func doesLoggingFileExist(fullPathToLogFile string, osPtr afero.Fs) bool {
 	// check to see if a log file already exists. If it does, delete it
-	fileInfo, err := os.Stat(fullPathToLogFile)
+	fileInfo, err := osPtr.Stat(fullPathToLogFile)
 	if err != nil {
 		// if the file does not exist there's nothing to do
 		// if the error is anything else panic
@@ -163,15 +166,64 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 	return true
 }
 
+// func getOSPtr returns a pointer to the os file system we are using. Choices are native filesystem or an in memory map
+// based on the value of 'isMock'
+func getOSPtr(isMock bool) afero.Fs {
+	osPtr := afero.NewOsFs()
+	if isMock {
+		osPtr = afero.NewMemMapFs()
+	}
+
+	return osPtr
+}
+
+// func handleOldLogFile performs any necessary setup work on existing log files, if we are logging to a file based off the logging
+// output mode
+func handleOldLogFile(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction, osPtr afero.Fs) error {
+	if logMode == ModeFile || logMode == ModeBoth {
+		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
+		// note that file append is default behavior
+		stringBuilder.Reset()
+
+		stringBuilder.WriteString(logDirectory)
+		stringBuilder.WriteString("/")
+		stringBuilder.WriteString(logFile)
+
+		var fullPathToLogFile = stringBuilder.String()
+		var fileExists = doesLoggingFileExist(fullPathToLogFile, osPtr)
+		if fileExists {
+			if logFileStartupAction == FileActionCompress {
+				// compress the file
+				compressFile(fullPathToLogFile, osPtr)
+			} else if logFileStartupAction == FileActionDelete {
+				// delete the file
+				err := osPtr.Remove(fullPathToLogFile)
+				if err != nil {
+					stringBuilder.Reset()
+
+					stringBuilder.WriteString("Terminating. Could not delete log file '")
+					stringBuilder.WriteString(fullPathToLogFile)
+					stringBuilder.WriteString("' because: ")
+					stringBuilder.WriteString(err.Error())
+
+					return errors.New(stringBuilder.String())
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // func validateLogDirectory validates the provided log directory. If it does not exist, it is created.
 // an error is returned if the log directory is invalid. Else, nil is returned
-func validateLogDirectory(logDirectory string, logMode LoggingOutputMode) error {
+func validateLogDirectory(logDirectory string, logMode LoggingOutputMode, osPtr afero.Fs) error {
 	// the log directory is not used if we're not logging to a file
 	if !(logMode == ModeFile || logMode == ModeBoth) {
 		return nil
 	}
 
-	mkdirErr := os.MkdirAll(logDirectory, os.ModePerm)
+	mkdirErr := osPtr.MkdirAll(logDirectory, os.ModePerm)
 	if mkdirErr != nil {
 		stringBuilder.Reset()
 
@@ -185,7 +237,7 @@ func validateLogDirectory(logDirectory string, logMode LoggingOutputMode) error 
 	}
 
 	// Errors here are extremely unlikely, but not harm in checking for them
-	fileInfo, statErr := os.Stat(logDirectory)
+	fileInfo, statErr := osPtr.Stat(logDirectory)
 	if statErr != nil {
 		if os.IsNotExist(statErr) {
 			// The directory does not exist
@@ -223,47 +275,9 @@ func validateLogDirectory(logDirectory string, logMode LoggingOutputMode) error 
 	return nil
 }
 
-// func handleOldLogFile performs any necessary setup work on existing log files, if we are logging to a file based off the logging
-// output mode
-func handleOldLogFile(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
-	if logMode == ModeFile || logMode == ModeBoth {
-		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
-		// note that file append is default behavior
-		stringBuilder.Reset()
-
-		stringBuilder.WriteString(logDirectory)
-		stringBuilder.WriteString("/")
-		stringBuilder.WriteString(logFile)
-
-		var fullPathToLogFile = stringBuilder.String()
-		var fileExists = doesLoggingFileExist(fullPathToLogFile)
-		if fileExists {
-			if logFileStartupAction == FileActionCompress {
-				// compress the file
-				compressFile(fullPathToLogFile)
-			} else if logFileStartupAction == FileActionDelete {
-				// delete the file
-				err := os.Remove(fullPathToLogFile)
-				if err != nil {
-					stringBuilder.Reset()
-
-					stringBuilder.WriteString("Terminating. Could not delete log file '")
-					stringBuilder.WriteString(fullPathToLogFile)
-					stringBuilder.WriteString("' because: ")
-					stringBuilder.WriteString(err.Error())
-
-					return errors.New(stringBuilder.String())
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // func validateLoggerConfig validate a loggers configuration as valid. If a configuration is invalid,
 // an error is returned. Else, nil is returned
-func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
+func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction, osPtr afero.Fs) error {
 	if !logMode.IsValidMode() {
 		return errors.New("Invalid log mode provided. See log modes in 'logging_output_modes.go'")
 	}
@@ -272,7 +286,7 @@ func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFil
 		return errors.New("Invalid log file startup action provided. See actions in 'logging_file_actions.go'")
 	}
 
-	err := validateLogDirectory(logDirectory, logMode)
+	err := validateLogDirectory(logDirectory, logMode, osPtr)
 	if err != nil {
 		return err
 	}
@@ -316,21 +330,20 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, err
 	}
 
 	for _, config := range loggingConfigs {
-		// TODO: Change to string builder
-		fmt.Printf("The object is %+v\n", config)
-		fmt.Printf("Configname is %s\n", config.Name)
 		if config.Name == profile {
-			returnError = validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+			osPtr := getOSPtr(config.IsMock)
+
+			returnError = validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction, osPtr)
 			if returnError != nil {
 				return logger, returnError
 			}
 
-			returnError = handleOldLogFile(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+			returnError = handleOldLogFile(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction, osPtr)
 			if returnError != nil {
 				return logger, returnError
 			}
 
-			logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
+			logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize, OsHandle: osPtr}
 			return logger, nil
 		}
 	}
@@ -349,20 +362,22 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, err
 }
 
 // func SetupLoggerFromFields sets up and returns a logger instance from passed in individual fields
-func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction LoggingFileAction, logDirectory string, logFile string, shouldColorize bool) (Logger, error) {
+func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction LoggingFileAction, logDirectory string, logFile string, shouldColorize bool, isMock bool) (Logger, error) {
 	var logger Logger
 
-	returnError := validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction)
+	osPtr := getOSPtr(isMock)
+
+	returnError := validateLoggerConfig(logMode, logDirectory, logFile, logFileStartupAction, osPtr)
 	if returnError != nil {
 		return logger, returnError
 	}
 
-	returnError = handleOldLogFile(logMode, logDirectory, logFile, logFileStartupAction)
+	returnError = handleOldLogFile(logMode, logDirectory, logFile, logFileStartupAction, osPtr)
 	if returnError != nil {
 		return logger, returnError
 	}
 
-	logger = Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize}
+	logger = Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize, OsHandle: osPtr}
 	return logger, nil
 }
 
@@ -370,16 +385,18 @@ func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction Loggi
 func SetupLoggerFromStruct(config *LoggingConfig) (Logger, error) {
 	var logger Logger
 
-	returnError := validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+	osPtr := getOSPtr(config.IsMock)
+
+	returnError := validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction, osPtr)
 	if returnError != nil {
 		return logger, returnError
 	}
 
-	returnError = handleOldLogFile(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+	returnError = handleOldLogFile(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction, osPtr)
 	if returnError != nil {
 		return logger, returnError
 	}
 
-	logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
+	logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize, OsHandle: osPtr}
 	return logger, nil
 }

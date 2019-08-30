@@ -49,10 +49,11 @@ The following arguments are passed in during initialization by calling `SetupLog
 + `logDirectory (string)` - If `logMode` is `Both` or `File`, this is the directory to which the logger will write logs.
 + `logFile (string)` - If the `logMode` is `Both` or `File`, this is the file to which the logger will write logs.
 + `shouldColorize (bool)` - If set to `true` logging will be colorized as described in section `Logging Modes`.
++ `isMock (bool)` - If set to `true` all filesystem ops will be stubbed by a fake filesystem as defined by [afero](https://github.com/spf13/afero)
 
 For example:
 ```
-logger := golog.SetupLoggerFromFields(golog.Both, golog.FileActionNone, "/path/to/log/file", "file.log", true)
+logger := golog.SetupLoggerFromFields(golog.ModeBoth, golog.FileActionNone, "/path/to/log/file", "file.log", true, false)
 ```
 
 ### Initialization From Struct
@@ -69,12 +70,13 @@ type LoggingConfig struct {
 	LogDirectory         string            // The directory to which the logger writes
 	LogFile              string            // The name of the log file to write to
 	ShouldColorize       bool              // Indicates if we should output information in color
+	IsMock               bool              // If true, mock the filesystem via 'afero'
 }
 ```
 A sample initialization would thus be as follows:
 
 ```
-config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/dir/to/my/go/project", LogFile: "important.log", ShouldColorize: true}
+config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/dir/to/my/go/project", LogFile: "important.log", ShouldColorize: true, IsMock: false}
 logger := golog.SetupLoggerFromStruct(&config)
 ```
 ### Initialization From JSON File
@@ -90,22 +92,24 @@ A sample configuration file containing 3 profiles is shown below. Note how each 
 	"logFileStartupAction": 1,               // FileActionAppend
 	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test1.log",
-	"shouldColorize": true
-
+	"shouldColorize": true,
+	"isMock": true,
 }, {
 	"name": "test2",
 	"logMode": 2,                            // ModeScreen 
 	"logFileStartupAction": 2,               // FileActionCompress
 	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test2.log",
-	"shouldColorize": true
+	"shouldColorize": true,
+	"isMock" : false
 }, {
 	"name": "test3",
 	"logMode": 3,                            // ModeBoth
 	"logFileStartupAction": 3,               // FileActionDelete
 	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test3.log",
-	"shouldColorize": true
+	"shouldColorize": true,
+	"isMock": true
 }]
 ```
 

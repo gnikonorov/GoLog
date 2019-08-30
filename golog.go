@@ -49,7 +49,7 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 		var fileName = stringBuilder.String()
 
 		// append to the log file, creating if one does not exist. In case of any error, panic
-		logHandle, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
+		logHandle, err := logger.OsHandle.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0644)
 		defer logHandle.Close()
 		if err != nil {
 			// can't open file
