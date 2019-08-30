@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/gnikonorov/golog.svg?branch=master)](https://travis-ci.org/gnikonorov/golog)
+
 # golog
 
 `golog` is a logger for the Go programming language.
