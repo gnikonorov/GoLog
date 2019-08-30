@@ -165,6 +165,8 @@ func (logger *Logger) Panic(logText string) {
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
+// since logging mode is private to golog, package users can never set 'logging mode' without
+// using a logger setup method
 func (logger *Logger) IsUninitialized() bool {
 	return logger.loggingMode == 0
 }
