@@ -165,7 +165,12 @@ func doesLoggingFileExist(fullPathToLogFile string) bool {
 
 // func validateLogDirectory validates the provided log directory. If it does not exist, it is created.
 // an error is returned if the log directory is invalid. Else, nil is returned
-func validateLogDirectory(logDirectory string) error {
+func validateLogDirectory(logDirectory string, logMode LoggingOutputMode) error {
+	// the log directory is not used if we're not logging to a file
+	if !(logMode == ModeFile || logMode == ModeBoth) {
+		return nil
+	}
+
 	mkdirErr := os.MkdirAll(logDirectory, os.ModePerm)
 	if mkdirErr != nil {
 		stringBuilder.Reset()
@@ -218,23 +223,10 @@ func validateLogDirectory(logDirectory string) error {
 	return nil
 }
 
-// func validateLoggerConfig validate a loggers configuration as valid. If a configuration is invalid,
-// an error is returned. Else, nil is returned
-func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
-	if !logMode.IsValidMode() {
-		return errors.New("Invalid log mode provided. See log modes in 'logging_output_modes.go'")
-	}
-
-	if !logFileStartupAction.IsValidFileAction() {
-		return errors.New("Invalid log file startup action provided. See actions in 'logging_file_actions.go'")
-	}
-
+// func handleOldLogFile performs any necessary setup work on existing log files, if we are logging to a file based off the logging
+// output mode
+func handleOldLogFile(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
 	if logMode == ModeFile || logMode == ModeBoth {
-		err := validateLogDirectory(logDirectory)
-		if err != nil {
-			return err
-		}
-
 		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
 		// note that file append is default behavior
 		stringBuilder.Reset()
@@ -264,6 +256,25 @@ func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFil
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+// func validateLoggerConfig validate a loggers configuration as valid. If a configuration is invalid,
+// an error is returned. Else, nil is returned
+func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction) error {
+	if !logMode.IsValidMode() {
+		return errors.New("Invalid log mode provided. See log modes in 'logging_output_modes.go'")
+	}
+
+	if !logFileStartupAction.IsValidFileAction() {
+		return errors.New("Invalid log file startup action provided. See actions in 'logging_file_actions.go'")
+	}
+
+	err := validateLogDirectory(logDirectory, logMode)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -314,6 +325,11 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, err
 				return logger, returnError
 			}
 
+			returnError = handleOldLogFile(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+			if returnError != nil {
+				return logger, returnError
+			}
+
 			logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize}
 			return logger, nil
 		}
@@ -341,6 +357,11 @@ func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction Loggi
 		return logger, returnError
 	}
 
+	returnError = handleOldLogFile(logMode, logDirectory, logFile, logFileStartupAction)
+	if returnError != nil {
+		return logger, returnError
+	}
+
 	logger = Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize}
 	return logger, nil
 }
@@ -350,6 +371,11 @@ func SetupLoggerFromStruct(config *LoggingConfig) (Logger, error) {
 	var logger Logger
 
 	returnError := validateLoggerConfig(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
+	if returnError != nil {
+		return logger, returnError
+	}
+
+	returnError = handleOldLogFile(config.LogMode, config.LogDirectory, config.LogFile, config.LogFileStartupAction)
 	if returnError != nil {
 		return logger, returnError
 	}
