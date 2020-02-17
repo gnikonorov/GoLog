@@ -12,6 +12,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/spf13/afero"
 )
@@ -50,6 +51,8 @@ type LoggingConfig struct {
 
 // func compressFile compresses the file pointed to by 'filePath'
 func compressFile(filePath string, osPtr afero.Fs) {
+	var stringBuilder strings.Builder
+
 	fileHandle, err := osPtr.Open(filePath)
 	if err != nil {
 		stringBuilder.Reset()
@@ -137,6 +140,8 @@ func compressFile(filePath string, osPtr afero.Fs) {
 
 // func doesLoggingFileExist checks to make sure that file 'fullPathToLogFile' exists and returns assertion of its existance
 func doesLoggingFileExist(fullPathToLogFile string, osPtr afero.Fs) bool {
+	var stringBuilder strings.Builder
+
 	// check to see if a log file already exists. If it does, delete it
 	fileInfo, err := osPtr.Stat(fullPathToLogFile)
 	if err != nil {
@@ -178,6 +183,8 @@ func getOSPtr(isMock bool) afero.Fs {
 // func handleOldLogFile performs any necessary setup work on existing log files, if we are logging to a file based off the logging
 // output mode
 func handleOldLogFile(logMode LoggingOutputMode, logDirectory string, logFile string, logFileStartupAction LoggingFileAction, osPtr afero.Fs) error {
+	var stringBuilder strings.Builder
+
 	if logMode == ModeFile || logMode == ModeBoth {
 		// depending on the logFileStartupAction value perform the appropriate action on any existing log file
 		// note that file append is default behavior
@@ -216,6 +223,8 @@ func handleOldLogFile(logMode LoggingOutputMode, logDirectory string, logFile st
 // func validateLogDirectory validates the provided log directory. If it does not exist, it is created.
 // an error is returned if the log directory is invalid. Else, nil is returned
 func validateLogDirectory(logDirectory string, logMode LoggingOutputMode, osPtr afero.Fs) error {
+	var stringBuilder strings.Builder
+
 	// the log directory is not used if we're not logging to a file
 	if !(logMode == ModeFile || logMode == ModeBoth) {
 		return nil
@@ -294,8 +303,9 @@ func validateLoggerConfig(logMode LoggingOutputMode, logDirectory string, logFil
 
 // func SetupLoggerFromConfigFile sets up and returns a logger instance as specified in 'fullFilePath' for 'profile'
 func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, error) {
-	var returnError error
-	var logger      Logger
+	var returnError   error
+	var logger        Logger
+	var stringBuilder strings.Builder
 
 	// get bytes of file
 	fileBytes, err := ioutil.ReadFile(fullFilePath)

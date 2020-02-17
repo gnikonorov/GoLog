@@ -10,10 +10,6 @@ import (
 	"strings"
 )
 
-// TODO: Change to a thread safe object
-//       string builer is not thread safe ad so breaks asynch logging
-var stringBuilder strings.Builder // Used to avoid costly string concatenation
-
 // writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
 // it will also raise a panic with the user provided log text
 func writeLog(loggingMessage logMessage) {
@@ -26,6 +22,8 @@ func writeLog(loggingMessage logMessage) {
 			fmt.Printf(logString)
 		}
 	}
+
+	var stringBuilder strings.Builder
 
 	if loggingMessage.logger.loggingMode == ModeBoth || loggingMessage.logger.loggingMode == ModeFile {
 		stringBuilder.Reset()
