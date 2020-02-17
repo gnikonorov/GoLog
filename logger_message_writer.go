@@ -51,7 +51,6 @@ func writeLog(loggingMessage logMessage) {
 
 		stringBuilder.Reset()
 
-		stringBuilder.WriteString(loggingMessage.paintColor)
 		stringBuilder.WriteString("[")
 		stringBuilder.WriteString(loggingMessage.logTime)
 		stringBuilder.WriteString("] ")
@@ -59,7 +58,6 @@ func writeLog(loggingMessage logMessage) {
 		stringBuilder.WriteString(": ")
 		stringBuilder.WriteString(loggingMessage.logger.context)
 		stringBuilder.WriteString(loggingMessage.logText)
-		stringBuilder.WriteString(loggingMessage.resetColor)
 		stringBuilder.WriteString("\n")
 
 		var writeBytes = []byte(stringBuilder.String())
