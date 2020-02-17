@@ -25,7 +25,11 @@ func (logger *Logger) Debug(logText string) {
 	}
 
 	loggingMessage := logMessage{time.Now().String(), levelDebug.String(), paintColor.String(), resetColor.String(), logText, outStreamStdOut, false, logger}
-	writeLog(loggingMessage)
+	if logger.isAsynch {
+		logger.queueMgr.enqueue(loggingMessage)
+	} else {
+		writeLog(loggingMessage)
+	}
 }
 
 // Info Outputs info log information to the logging destination
@@ -34,7 +38,11 @@ func (logger *Logger) Info(logText string) {
 	var resetColor = colorNone
 
 	loggingMessage := logMessage{time.Now().String(), levelInfo.String(), paintColor.String(), resetColor.String(), logText, outStreamStdOut, false, logger}
-	writeLog(loggingMessage)
+	if logger.isAsynch {
+		logger.queueMgr.enqueue(loggingMessage)
+	} else {
+		writeLog(loggingMessage)
+	}
 }
 
 // Warning Outputs warning information to the logging destination
@@ -47,7 +55,11 @@ func (logger *Logger) Warning(logText string) {
 	}
 
 	loggingMessage := logMessage{time.Now().String(), levelWarn.String(), paintColor.String(), resetColor.String(), logText, outStreamStdOut, false, logger}
-	writeLog(loggingMessage)
+	if logger.isAsynch {
+		logger.queueMgr.enqueue(loggingMessage)
+	} else {
+		writeLog(loggingMessage)
+	}
 }
 
 // Err Outputs error information to the logging destination
@@ -60,7 +72,11 @@ func (logger *Logger) Err(logText string) {
 	}
 
 	loggingMessage := logMessage{time.Now().String(), levelErr.String(), paintColor.String(), resetColor.String(), logText, outStreamStdErr, false, logger}
-	writeLog(loggingMessage)
+	if logger.isAsynch {
+		logger.queueMgr.enqueue(loggingMessage)
+	} else {
+		writeLog(loggingMessage)
+	}
 }
 
 // Fatal Outputs fatal information to the logging desination but does not cause a panic,
@@ -74,7 +90,11 @@ func (logger *Logger) Fatal(logText string) {
 	}
 
 	loggingMessage := logMessage{time.Now().String(), levelFatal.String(), paintColor.String(), resetColor.String(), logText, outStreamStdErr, false, logger}
-	writeLog(loggingMessage)
+	if logger.isAsynch {
+		logger.queueMgr.enqueue(loggingMessage)
+	} else {
+		writeLog(loggingMessage)
+	}
 }
 
 // Panic Outputs fatal information to the logging desination and causes a panic
@@ -87,7 +107,11 @@ func (logger *Logger) Panic(logText string) {
 	}
 
 	loggingMessage := logMessage{time.Now().String(), levelPanic.String(), paintColor.String(), resetColor.String(), logText, outStreamStdErr, true, logger}
-	writeLog(loggingMessage)
+	if logger.isAsynch {
+		logger.queueMgr.enqueue(loggingMessage)
+	} else {
+		writeLog(loggingMessage)
+	}
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
@@ -101,4 +125,12 @@ func (logger *Logger) IsUninitialized() bool {
 // information
 func (logger *Logger) SetContext(context string) {
 	logger.context = context
+}
+
+// Shutdown flushes the logger and outputs any remaining messages in its queue if it is asynch
+// one should always call shutdown to ensure all messages are logged correctly
+func (logger *Logger) Shutdown() {
+	if logger.isAsynch {
+		logger.queueMgr.stop()
+	}
 }

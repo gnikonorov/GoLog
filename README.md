@@ -50,10 +50,11 @@ The following arguments are passed in during initialization by calling `SetupLog
 + `logFile (string)` - If the `logMode` is `Both` or `File`, this is the file to which the logger will write logs.
 + `shouldColorize (bool)` - If set to `true` logging will be colorized as described in section `Logging Modes`.
 + `isMock (bool)` - If set to `true` all filesystem ops will be stubbed by a fake filesystem as defined by [afero](https://github.com/spf13/afero)
++ `isAsynch (bool)` - If set to `true` perform all logging asynchly in a seperate goroutine
 
 For example:
 ```
-logger := golog.SetupLoggerFromFields(golog.ModeBoth, golog.FileActionNone, "/path/to/log/file", "file.log", true, false)
+logger := golog.SetupLoggerFromFields(golog.ModeBoth, golog.FileActionNone, "/path/to/log/file", "file.log", true, false, true)
 ```
 
 ### Initialization From Struct
@@ -71,12 +72,13 @@ type LoggingConfig struct {
 	LogFile              string            // The name of the log file to write to
 	ShouldColorize       bool              // Indicates if we should output information in color
 	IsMock               bool              // If true, mock the filesystem via 'afero'
+	IsAsynch             bool              // If true, Asynchly handle log requests
 }
 ```
 A sample initialization would thus be as follows:
 
 ```
-config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/dir/to/my/go/project", LogFile: "important.log", ShouldColorize: true, IsMock: false}
+config := golog.LoggingConfig{LogMode: golog.Both, LogDirectory: "/dir/to/my/go/project", LogFile: "important.log", ShouldColorize: true, IsMock: false, IsAsynch: true}
 logger := golog.SetupLoggerFromStruct(&config)
 ```
 ### Initialization From JSON File
@@ -94,6 +96,7 @@ A sample configuration file containing 3 profiles is shown below. Note how each 
 	"logFile": "test1.log",
 	"shouldColorize": true,
 	"isMock": true,
+	"isAsynch": false
 }, {
 	"name": "test2",
 	"logMode": 2,                            // ModeScreen 
@@ -101,7 +104,8 @@ A sample configuration file containing 3 profiles is shown below. Note how each 
 	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test2.log",
 	"shouldColorize": true,
-	"isMock" : false
+	"isMock": false,
+	"isAsynch": false
 }, {
 	"name": "test3",
 	"logMode": 3,                            // ModeBoth
@@ -109,7 +113,8 @@ A sample configuration file containing 3 profiles is shown below. Note how each 
 	"logDirectory": "/dir/to/my/go/project",
 	"logFile": "test3.log",
 	"shouldColorize": true,
-	"isMock": true
+	"isMock": true,
+	"isAsynch": true
 }]
 ```
 

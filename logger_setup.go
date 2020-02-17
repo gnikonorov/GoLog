@@ -17,11 +17,6 @@ import (
 )
 
 // Logger is representative of the logger for use in other go programs
-// Contains the following fields:
-//	colorize:         Boolean value indicating if logging out should be colorized
-//	loggingMode:      Must be of type LoggingOutputMode as defined in 'logging_output_modes.go'
-//	loggingDirectory: The directory to store log files in
-//	loggingFile:      The name of the log file to output to
 //
 // The following methods are exposed by this structure ( defined in golog.go ):
 //	Debug(logText string): Log debug output to log destination
@@ -36,7 +31,9 @@ type Logger struct {
 	loggingDirectory string            // The directory to store logs in
 	loggingFile      string            // The file to store logs in
 	loggingMode      LoggingOutputMode // The mode of the logger ( see 'logging_output_modes.go' )
-	OsHandle         afero.Fs          // We are using afero to enable mocking and stubbing the native FS during tests.
+	osHandle         afero.Fs          // We are using afero to enable mocking and stubbing the native FS during tests.
+	isAsynch         bool              // If true, Asynchly handle log requests
+	queueMgr         queueManager      // The asynch message handler, populated only if 'isAsynch' is true
 }
 
 // LoggingConfig holds a logging configuration for the logger and is used during logger initialization
@@ -48,6 +45,7 @@ type LoggingConfig struct {
 	LogFile              string            // The name of the log file to write to
 	ShouldColorize       bool              // Indicates if we should output information in color
 	IsMock               bool              // If true, mock the filesystem via 'afero'
+	IsAsynch             bool              // If true, Asynchly handle log requests
 }
 
 // func compressFile compresses the file pointed to by 'filePath'
@@ -343,7 +341,13 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, err
 				return logger, returnError
 			}
 
-			logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize, OsHandle: osPtr}
+			var queueMgr queueManager
+			if config.IsAsynch {
+				queueMgr = createQueueMgr()
+				queueMgr.start()
+			}
+
+			logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize, osHandle: osPtr, isAsynch: config.IsAsynch, queueMgr: queueMgr}
 			return logger, nil
 		}
 	}
@@ -362,7 +366,7 @@ func SetupLoggerFromConfigFile(fullFilePath string, profile string) (Logger, err
 }
 
 // func SetupLoggerFromFields sets up and returns a logger instance from passed in individual fields
-func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction LoggingFileAction, logDirectory string, logFile string, shouldColorize bool, isMock bool) (Logger, error) {
+func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction LoggingFileAction, logDirectory string, logFile string, shouldColorize bool, isMock bool, isAsynch bool) (Logger, error) {
 	var logger Logger
 
 	osPtr := getOSPtr(isMock)
@@ -377,7 +381,13 @@ func SetupLoggerFromFields(logMode LoggingOutputMode, logFileStartupAction Loggi
 		return logger, returnError
 	}
 
-	logger = Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize, OsHandle: osPtr}
+	var queueMgr queueManager
+	if isAsynch {
+		queueMgr = createQueueMgr()
+		queueMgr.start()
+	}
+
+	logger = Logger{loggingMode: logMode, loggingDirectory: logDirectory, loggingFile: logFile, colorize: shouldColorize, osHandle: osPtr, isAsynch: isAsynch, queueMgr: queueMgr}
 	return logger, nil
 }
 
@@ -397,6 +407,12 @@ func SetupLoggerFromStruct(config *LoggingConfig) (Logger, error) {
 		return logger, returnError
 	}
 
-	logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize, OsHandle: osPtr}
+	var queueMgr queueManager
+	if config.IsAsynch {
+		queueMgr = createQueueMgr()
+		queueMgr.start()
+	}
+
+	logger = Logger{loggingMode: config.LogMode, loggingDirectory: config.LogDirectory, loggingFile: config.LogFile, colorize: config.ShouldColorize, osHandle: osPtr, isAsynch: config.IsAsynch, queueMgr: queueMgr}
 	return logger, nil
 }

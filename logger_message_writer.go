@@ -10,7 +10,8 @@ import (
 	"strings"
 )
 
-// NOTE: I may or may not be thread safe
+// TODO: Change to a thread safe object
+//       string builer is not thread safe ad so breaks asynch logging
 var stringBuilder strings.Builder // Used to avoid costly string concatenation
 
 // writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
