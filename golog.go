@@ -23,16 +23,11 @@ var stringBuilder strings.Builder // Used to avoid costly string concatenation
 
 // writeLog writes a formatted log line to the user specified outputs. If 'shouldPanic' is true,
 // it will also raise a panic with the user provided log text
-func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor, loggingLevel LoggingLevel, logText string, outputStream int, shouldPanic bool) {
-	var logTime          = time.Now().String()
-	var loggingLevelText = loggingLevel.String()
-	var paintString      = paintColor.String()
-	var resetString      = resetColor.String()
-
+func (logger *Logger) writeLog(loggingMessage logMessage) {
 	if logger.loggingMode == ModeScreen || logger.loggingMode == ModeBoth {
-		logStrings := []string{paintString, "[", logTime, "] ", loggingLevelText, ": ", logger.context, logText, resetString, "\n"}
+		logStrings := []string{loggingMessage.paintColor, "[", loggingMessage.logTime, "] ", loggingMessage.loggingLevel, ": ", logger.context, loggingMessage.logText, loggingMessage.resetColor, "\n"}
 		var logString = strings.Join(logStrings, "")
-		if outputStream == outStreamStdErr {
+		if loggingMessage.outputStream == outStreamStdErr {
 			os.Stderr.WriteString(logString)
 		} else {
 			fmt.Printf(logString)
@@ -65,15 +60,15 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 
 		stringBuilder.Reset()
 
-		stringBuilder.WriteString(paintString)
+		stringBuilder.WriteString(loggingMessage.paintColor)
 		stringBuilder.WriteString("[")
-		stringBuilder.WriteString(logTime)
+		stringBuilder.WriteString(loggingMessage.logTime)
 		stringBuilder.WriteString("] ")
-		stringBuilder.WriteString(loggingLevelText)
+		stringBuilder.WriteString(loggingMessage.loggingLevel)
 		stringBuilder.WriteString(": ")
 		stringBuilder.WriteString(logger.context)
-		stringBuilder.WriteString(logText)
-		stringBuilder.WriteString(resetString)
+		stringBuilder.WriteString(loggingMessage.logText)
+		stringBuilder.WriteString(loggingMessage.resetColor)
 		stringBuilder.WriteString("\n")
 
 		var writeBytes = []byte(stringBuilder.String())
@@ -90,8 +85,8 @@ func (logger *Logger) writeLog(paintColor LoggingColor, resetColor LoggingColor,
 		}
 	}
 
-	if shouldPanic {
-		panic(logText)
+	if loggingMessage.shouldPanic {
+		panic(loggingMessage.logText)
 	}
 }
 
@@ -104,7 +99,8 @@ func (logger *Logger) Debug(logText string) {
 		resetColor = colorReset
 	}
 
-	logger.writeLog(paintColor, resetColor, levelDebug, logText, outStreamStdOut, false)
+	loggingMessage := logMessage{time.Now().String(), levelDebug.String(), paintColor.String(), resetColor.String(), logText, outStreamStdOut, false}
+	logger.writeLog(loggingMessage)
 }
 
 // Info Outputs info log information to the logging destination
@@ -112,7 +108,8 @@ func (logger *Logger) Info(logText string) {
 	var paintColor = colorNone
 	var resetColor = colorNone
 
-	logger.writeLog(paintColor, resetColor, levelInfo, logText, outStreamStdOut, false)
+	loggingMessage := logMessage{time.Now().String(), levelInfo.String(), paintColor.String(), resetColor.String(), logText, outStreamStdOut, false}
+	logger.writeLog(loggingMessage)
 }
 
 // Warning Outputs warning information to the logging destination
@@ -124,7 +121,8 @@ func (logger *Logger) Warning(logText string) {
 		resetColor = colorReset
 	}
 
-	logger.writeLog(paintColor, resetColor, levelWarn, logText, outStreamStdErr, false)
+	loggingMessage := logMessage{time.Now().String(), levelWarn.String(), paintColor.String(), resetColor.String(), logText, outStreamStdOut, false}
+	logger.writeLog(loggingMessage)
 }
 
 // Err Outputs error information to the logging destination
@@ -136,7 +134,8 @@ func (logger *Logger) Err(logText string) {
 		resetColor = colorReset
 	}
 
-	logger.writeLog(paintColor, resetColor, levelErr, logText, outStreamStdErr, false)
+	loggingMessage := logMessage{time.Now().String(), levelErr.String(), paintColor.String(), resetColor.String(), logText, outStreamStdErr, false}
+	logger.writeLog(loggingMessage)
 }
 
 // Fatal Outputs fatal information to the logging desination but does not cause a panic,
@@ -149,7 +148,8 @@ func (logger *Logger) Fatal(logText string) {
 		resetColor = colorReset
 	}
 
-	logger.writeLog(paintColor, resetColor, levelFatal, logText, outStreamStdErr, false)
+	loggingMessage := logMessage{time.Now().String(), levelFatal.String(), paintColor.String(), resetColor.String(), logText, outStreamStdErr, false}
+	logger.writeLog(loggingMessage)
 }
 
 // Panic Outputs fatal information to the logging desination and causes a panic
@@ -161,7 +161,8 @@ func (logger *Logger) Panic(logText string) {
 		resetColor = colorReset
 	}
 
-	logger.writeLog(paintColor, resetColor, levelPanic, logText, outStreamStdErr, true)
+	loggingMessage := logMessage{time.Now().String(), levelPanic.String(), paintColor.String(), resetColor.String(), logText, outStreamStdErr, true}
+	logger.writeLog(loggingMessage)
 }
 
 // IsUninitialized Returns true if this structure has not yet been allocated
